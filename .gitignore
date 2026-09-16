@@ -1,0 +1,11 @@
+venv/
+__pycache__/
+*.pyc
+.env
+checkpoints/
+logs/
+vectorstore/
+.pytest_cache/
+output/*
+!output/.gitkeep
+.DS_Store

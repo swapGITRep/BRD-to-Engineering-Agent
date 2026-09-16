@@ -1,0 +1,55 @@
+# ============================================================
+# BRD FRAMEWORK CONFIGURATION
+# Evaluation rubric, quality-badge thresholds, required
+# deliverable sections, and output paths.
+# ============================================================
+
+# ─── Critic Rubric ───────────────────────────────────────
+# Weights must sum to 1.0. Used by the Critic to compute `overall`.
+rubric_weights:
+  completeness:  0.30
+  consistency:   0.25
+  actionability: 0.25
+  groundedness:  0.20
+
+# ─── Quality Badges ──────────────────────────────────────
+# overall >= green  → GREEN
+# overall >= amber  → AMBER
+# else              → RED
+badges:
+  green: 0.80
+  amber: 0.60
+
+# ─── Revision Policy ─────────────────────────────────────
+# (max_revisions_per_agent / min_pass_score also live in llm_config.yaml;
+#  llm_config wins if both are set — keep them in sync.)
+revision:
+  min_pass_score: 0.75
+
+# ─── Required Deliverable Sections ───────────────────────
+# The Critic's completeness score checks that each artifact's
+# `content` dict contains these keys (non-empty).
+required_sections:
+  engineering_plan: [phases, risks, milestones, team_composition]
+  schedule:         [phase_effort, timeline, resource_matrix, critical_path]
+  architecture:     [components, data_flows, nfr_mapping, key_decisions]
+  poc_plan:         [poc_goal, modules, success_criteria, exit_decision_matrix]
+  tech_stack:       [options, recommendation]
+
+# ─── BRD Ingestion ───────────────────────────────────────
+ingestion:
+  supported_formats: [".docx", ".pdf", ".md", ".txt"]
+  min_sections: 1
+  requirement_types: [functional, non_functional, constraint, assumption, out_of_scope]
+  nfr_categories: [performance, security, scalability, availability, compliance, usability]
+
+# ─── Output Paths ────────────────────────────────────────
+output:
+  parsed_dir:       "output/parsed"
+  deliverables_dir: "output/deliverables"
+  report_dir:       "output/reports"
+
+# ─── Artifact Store ──────────────────────────────────────
+# local → write under output/ on disk
+# blob  → write to Azure Blob (container from AZURE_BLOB_CONTAINER)
+artifact_store: "local"

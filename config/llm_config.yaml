@@ -1,0 +1,55 @@
+# ============================================================
+# LLM CONFIGURATION
+# Provider: OpenAI API. Model: gpt-4.1 for all agents.
+# Per-agent `model:` / `temperature:` / `max_tokens:` override the
+# global `openai:` block. Env vars OPENAI_MODEL / OPENAI_EMBED_MODEL
+# override everything.
+# ============================================================
+
+provider: openai
+
+openai:
+  model: "gpt-4.1"
+  embed_model: "text-embedding-3-large"
+  temperature: 0.2
+  max_tokens: 8192
+  timeout_seconds: 120
+  max_retries: 3
+
+# ─── Per-Agent Overrides ─────────────────────────────────
+agents:
+  orchestrator:
+    temperature: 0.0
+  brd_ingest:
+    temperature: 0.0
+    model: "gpt-4.1-mini"          # cheap, high-volume section classification pass
+  engineering_plan_generator:
+    temperature: 0.3               # draft + reflection + revise
+  schedule_estimator:
+    temperature: 0.1
+  solution_architect:
+    temperature: 0.2
+  poc_planner:
+    temperature: 0.2
+  tech_stack_recommender:
+    temperature: 0.3
+  critic:
+    temperature: 0.0
+
+# ─── Revision Loop ───────────────────────────────────────
+revision:
+  max_revisions_per_agent: 2
+  min_pass_score: 0.75
+
+# ─── RAG ─────────────────────────────────────────────────
+rag:
+  chunk_tokens: 800
+  chunk_overlap: 100
+  top_k: 6
+
+# ─── LangSmith Tracing ───────────────────────────────────
+langsmith:
+  project: "brd-dev-agent"
+  tags:
+    - "brd"
+    - "multi-agent"

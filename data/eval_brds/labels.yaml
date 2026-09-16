@@ -1,0 +1,109 @@
+# data/eval_brds/labels.yaml
+# ─────────────────────────────────────────────────────────────────────────────
+# The evaluation set: labeled BRDs spanning the edge cases the two original
+# demo samples don't exercise (ambiguity, conflicting NFRs, scale, sparseness,
+# regulatory depth, integration variety). scripts/run_eval.py runs the full
+# pipeline against every entry and checks the pipeline's actual behavior
+# against the `expect` block — not just that it completed, but that it
+# noticed what each BRD was specifically designed to test.
+#
+# `expect` keys (all optional; omitted checks are skipped, not failed):
+#   min_requirements  - the ingest agent must have classified at least this many
+#   min_ambiguous     - at least this many requirements must be ambiguity_flag=true
+#   expect_complete   - pipeline must (true, default) / must not (false) reach Stage.COMPLETE
+# ─────────────────────────────────────────────────────────────────────────────
+
+- brd_id: PAYMENTS_RECONCILIATION
+  file: data/sample_brds/payments_reconciliation_brd.md
+  category: baseline
+  tests: >
+    Clear, well-specified, numerically precise BRD — the happy-path baseline
+    every other case is measured against.
+  expect:
+    min_requirements: 10
+    expect_complete: true
+
+- brd_id: CUSTOMER_PORTAL_REVAMP
+  file: data/sample_brds/customer_portal_revamp_brd.md
+  category: baseline
+  tests: >
+    A second clear baseline in a different domain (consumer web vs. backend
+    platform) and a different document convention (numbered headings, no ##).
+  expect:
+    min_requirements: 10
+    expect_complete: true
+
+- brd_id: AMBIGUOUS_ANALYTICS
+  file: data/eval_brds/ambiguous_analytics_brd.md
+  category: ambiguous
+  tests: >
+    Vague, hedged requirement language ("should probably", "TBD", "whatever
+    makes sense") throughout, with no priority markers and no numeric NFRs —
+    checks that the ingestion agent actually flags ambiguity rather than
+    silently inventing certainty the BRD doesn't contain.
+  expect:
+    min_requirements: 6
+    min_ambiguous: 4
+    expect_complete: true
+
+- brd_id: CONFLICTING_NFRS
+  file: data/eval_brds/conflicting_nfrs_brd.md
+  category: conflicting
+  tests: >
+    A hard, numeric contradiction (a 150ms p99 budget vs. a fraud model whose
+    own documented latency is 180-220ms) plus a freshness-vs-latency tension
+    (mandatory uncached feature lookups within that same budget) — checks
+    whether the tension is surfaced as a real risk/decision rather than a
+    plan that quietly assumes both constraints are simultaneously satisfiable.
+  expect:
+    min_requirements: 11
+    expect_complete: true
+
+- brd_id: OVERSIZED_PLATFORM_MIGRATION
+  file: data/eval_brds/oversized_platform_migration_brd.md
+  category: scale
+  tests: >
+    22 requirements across 5 services, a strangler-fig migration, CDC, and
+    reconciliation — checks the pipeline handles scale without truncating or
+    degrading (does the engineering plan decompose 5 services into sane
+    phases, or flatten into one undifferentiated blob).
+  expect:
+    min_requirements: 18
+    expect_complete: true
+
+- brd_id: MINIMAL_INTERNAL_TOOL
+  file: data/eval_brds/minimal_internal_tool_brd.md
+  category: sparse
+  tests: >
+    Only 2 functional requirements and 1 NFR — checks the pipeline degrades
+    gracefully on thin input (still completes, doesn't error, and — the more
+    interesting failure mode — doesn't inflate a two-person side project into
+    an enterprise-scale plan it was never asked for).
+  expect:
+    min_requirements: 2
+    expect_complete: true
+
+- brd_id: REGULATED_FINTECH_LEDGER
+  file: data/eval_brds/regulated_fintech_ledger_brd.md
+  category: regulatory
+  tests: >
+    Immutability, double-entry bookkeeping, 7-year retention, tamper-evident
+    audit trail, EU data residency — checks the NFR mapping and architecture
+    actually engage with real regulatory constraints (grounded in
+    security_baseline.md) rather than generic security boilerplate.
+  expect:
+    min_requirements: 12
+    expect_complete: true
+
+- brd_id: LEGACY_INTEGRATION_HEAVY
+  file: data/eval_brds/legacy_integration_heavy_brd.md
+  category: integration
+  tests: >
+    Six systems, five different integration shapes (SOAP, nightly flat-file
+    batch, REST, webhooks, a message queue, and a batch-only mainframe) —
+    stresses the Solution Architect's integration modeling and the Tech Stack
+    Recommender's tech-radar tool-calling across a wider variety of real
+    technology choices than the baseline cases touch.
+  expect:
+    min_requirements: 14
+    expect_complete: true

@@ -1,0 +1,20 @@
+# azd (Azure Developer CLI) config — `azd up` provisions infra/main.bicep,
+# builds the image, pushes to ACR, and deploys the Container App.
+# Docs: https://aka.ms/azd
+name: ik-brd-dev-agent
+metadata:
+  template: ik-brd-dev-agent@1.0.0
+
+infra:
+  provider: bicep
+  path: infra
+  module: main
+
+services:
+  web:
+    project: .
+    language: python
+    host: containerapp
+    docker:
+      path: ./Dockerfile
+      context: .

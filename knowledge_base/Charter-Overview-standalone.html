@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Charter Overview</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Spectral:wght@500;600;700&family=Public+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<style>
+  :root{
+    --paper:#faf9fc; --paper-raised:#ffffff; --paper-sunken:#f1eef8;
+    --ink:#17142a; --ink-muted:#655e78; --ink-faint:#9791a8;
+    --line:#e3dfed; --line-strong:#cfc8e2;
+    --accent:#4f46e5; --accent-2:#7c6cf6; --accent-wash:#efedfd;
+    --good:#157a3d; --good-wash:#e8f6ee;
+    --warn:#a85a06; --warn-wash:#fbf0df;
+    --risk:#b31c1c; --risk-wash:#fceaea;
+    --shadow: 0 1px 2px rgba(23,20,42,0.04), 0 8px 24px -12px rgba(23,20,42,0.14);
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --paper:#131022; --paper-raised:#1a1730; --paper-sunken:#0e0c1c;
+      --ink:#f1eefb; --ink-muted:#b6aecf; --ink-faint:#7d7599;
+      --line:#2d2850; --line-strong:#413a6b;
+      --accent:#8b80fa; --accent-2:#a89cff; --accent-wash:#211d42;
+      --good:#4fce8c; --good-wash:#132a1e;
+      --warn:#e2a24c; --warn-wash:#2e2410;
+      --risk:#f08a8a; --risk-wash:#301414;
+      --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 8px 28px -14px rgba(0,0,0,0.6);
+    }
+  }
+  :root[data-theme="dark"]{
+    --paper:#131022; --paper-raised:#1a1730; --paper-sunken:#0e0c1c;
+    --ink:#f1eefb; --ink-muted:#b6aecf; --ink-faint:#7d7599;
+    --line:#2d2850; --line-strong:#413a6b;
+    --accent:#8b80fa; --accent-2:#a89cff; --accent-wash:#211d42;
+    --good:#4fce8c; --good-wash:#132a1e;
+    --warn:#e2a24c; --warn-wash:#2e2410;
+    --risk:#f08a8a; --risk-wash:#301414;
+    --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 8px 28px -14px rgba(0,0,0,0.6);
+  }
+
+  *{box-sizing:border-box;}
+  body{
+    background:var(--paper); color:var(--ink);
+    font-family:'Public Sans', system-ui, -apple-system, sans-serif;
+    font-size:16px; line-height:1.6;
+  }
+  .doc{ max-width:900px; margin:0 auto; padding:4rem 1.75rem 6rem; }
+  h1,h2,h3{ font-family:'Spectral', Georgia, serif; text-wrap:balance; letter-spacing:-0.01em; color:var(--ink); }
+  .mono{ font-family:'IBM Plex Mono', ui-monospace, monospace; }
+
+  /* ---------- Cover ---------- */
+  .cover{ display:flex; flex-direction:column; gap:1.1rem; padding-bottom:2.75rem; border-bottom:1px solid var(--line); }
+  .cover-eyebrow{
+    display:flex; align-items:center; gap:.6rem;
+    font-family:'IBM Plex Mono'; font-size:.72rem; letter-spacing:.14em; text-transform:uppercase;
+    color:var(--ink-faint);
+  }
+  .cover-eyebrow .rule{ width:28px; height:1px; background:var(--line-strong); }
+  .cover h1{ font-size:3rem; font-weight:600; margin:0; line-height:1.04; }
+  .cover .tagline{ font-size:1.2rem; color:var(--ink-muted); max-width:36em; margin:.2rem 0 0; }
+  .cover-meta{ display:flex; flex-wrap:wrap; gap:.6rem; margin-top:.6rem; }
+  .chip{
+    display:inline-flex; align-items:center; gap:.4rem;
+    font-family:'IBM Plex Mono'; font-size:.74rem; font-weight:500; letter-spacing:.02em;
+    padding:.32rem .7rem; border-radius:99px; border:1px solid var(--line-strong);
+    color:var(--ink-muted); background:var(--paper-raised);
+  }
+  .chip.live{ color:var(--good); border-color:var(--good); background:var(--good-wash); }
+  .chip.live::before{ content:""; width:6px; height:6px; border-radius:50%; background:var(--good); }
+
+  /* ---------- Sections ---------- */
+  section{ padding:3rem 0; border-bottom:1px solid var(--line); }
+  section:last-of-type{ border-bottom:none; }
+  .kicker{
+    font-family:'IBM Plex Mono'; font-size:.72rem; letter-spacing:.14em; text-transform:uppercase;
+    color:var(--accent); margin:0 0 .6rem;
+  }
+  h2{ font-size:1.7rem; font-weight:600; margin:0 0 .9rem; }
+  h3{ font-size:1.08rem; font-weight:600; margin:0 0 .4rem; }
+  p{ margin:0 0 1rem; max-width:62ch; color:var(--ink); }
+  p.lede{ font-size:1.08rem; color:var(--ink-muted); max-width:60ch; }
+  .col-2{ display:grid; grid-template-columns:1fr 1fr; gap:2.4rem; align-items:start; }
+  @media (max-width:720px){ .col-2{ grid-template-columns:1fr; } }
+
+  /* ---------- Orchestration diagram ---------- */
+  .diagram{ margin:1.7rem 0 .4rem; }
+  .diagram svg{ display:block; width:100%; height:auto; }
+  .diagram figcaption{ margin-top:1rem; font-size:.86rem; color:var(--ink-muted); max-width:66ch; }
+  .diagram figcaption b{ color:var(--ink); font-weight:600; }
+
+  /* ---------- Capability grid ---------- */
+  .cap-grid{ display:grid; grid-template-columns:repeat(4,1fr); gap:1px; background:var(--line); border:1px solid var(--line); border-radius:12px; overflow:hidden; margin-top:1.5rem; }
+  @media (max-width:720px){ .cap-grid{ grid-template-columns:1fr 1fr; } }
+  .cap{ background:var(--paper-raised); padding:1.3rem 1.1rem; }
+  .cap .num{ font-family:'IBM Plex Mono'; font-size:.72rem; color:var(--accent); font-weight:600; }
+  .cap h3{ margin:.5rem 0 .35rem; font-size:1rem; }
+  .cap p{ font-size:.88rem; color:var(--ink-muted); margin:0; }
+
+  /* ---------- Roster table ---------- */
+  .roster{ width:100%; border-collapse:collapse; margin-top:1.4rem; font-size:.92rem; }
+  .roster th{
+    text-align:left; font-family:'IBM Plex Mono'; font-size:.68rem; letter-spacing:.08em; text-transform:uppercase;
+    color:var(--ink-faint); font-weight:500; padding:.5rem .8rem; border-bottom:1px solid var(--line-strong);
+  }
+  .roster td{ padding:.75rem .8rem; border-bottom:1px solid var(--line); vertical-align:top; }
+  .roster tr:last-child td{ border-bottom:none; }
+  .roster .role{ font-weight:600; white-space:nowrap; }
+  .roster .model{ font-family:'IBM Plex Mono'; font-size:.78rem; color:var(--accent); white-space:nowrap; }
+  .table-wrap{ overflow-x:auto; }
+
+  /* ---------- Deliverable cards ---------- */
+  .deliverables{ display:grid; grid-template-columns:repeat(5,1fr); gap:.9rem; margin-top:1.6rem; }
+  @media (max-width:860px){ .deliverables{ grid-template-columns:repeat(2,1fr); } }
+  .dcard{ background:var(--paper-raised); border:1px solid var(--line); border-radius:12px; padding:1.1rem 1rem; display:flex; flex-direction:column; gap:.5rem; }
+  .dcard .glyph{ font-family:'Spectral'; font-size:1.5rem; color:var(--accent); font-weight:600; }
+  .dcard h3{ font-size:.92rem; margin:0; }
+  .dcard p{ font-size:.8rem; color:var(--ink-muted); margin:0; }
+
+  /* ---------- Scorecard ---------- */
+  .scorecard{ width:100%; border-collapse:collapse; margin-top:1.3rem; font-size:.85rem; font-variant-numeric:tabular-nums; }
+  .scorecard th{
+    text-align:left; font-family:'IBM Plex Mono'; font-size:.66rem; letter-spacing:.06em; text-transform:uppercase;
+    color:var(--ink-faint); font-weight:500; padding:.5rem .7rem; border-bottom:1px solid var(--line-strong);
+  }
+  .scorecard td{ padding:.6rem .7rem; border-bottom:1px solid var(--line); }
+  .scorecard tr:last-child td{ border-bottom:none; }
+  .badge{ display:inline-flex; align-items:center; gap:.35rem; font-family:'IBM Plex Mono'; font-size:.72rem; font-weight:600; padding:.2rem .55rem; border-radius:99px; }
+  .badge::before{ content:""; width:7px; height:7px; border-radius:50%; }
+  .badge.good{ color:var(--good); background:var(--good-wash); } .badge.good::before{ background:var(--good); }
+  .badge.warn{ color:var(--warn); background:var(--warn-wash); } .badge.warn::before{ background:var(--warn); }
+
+  /* ---------- Example run stat strip ---------- */
+  .examplebar{
+    display:flex; align-items:center; justify-content:space-between; gap:.6rem;
+    background:var(--accent-wash); border:1px solid var(--line-strong); border-radius:10px;
+    padding:.7rem 1rem; margin-bottom:1.4rem; font-size:.86rem; color:var(--ink-muted);
+  }
+  .examplebar b{ color:var(--ink); font-family:'IBM Plex Mono'; font-weight:600; }
+  .stat-row{ display:grid; grid-template-columns:repeat(5,1fr); gap:1px; background:var(--line); border:1px solid var(--line); border-radius:12px; overflow:hidden; }
+  @media (max-width:720px){ .stat-row{ grid-template-columns:repeat(2,1fr); } }
+  .stat{ background:var(--paper-raised); padding:1.1rem 1rem; }
+  .stat .v{ font-family:'IBM Plex Mono'; font-size:1.5rem; font-weight:600; color:var(--ink); font-variant-numeric:tabular-nums; }
+  .stat .l{ font-size:.76rem; color:var(--ink-muted); margin-top:.15rem; }
+
+  /* ---------- Economics ---------- */
+  .econ{ display:grid; grid-template-columns:1fr 1fr; gap:1.2rem; margin-top:1.4rem; }
+  @media (max-width:720px){ .econ{ grid-template-columns:1fr; } }
+  .econ-card{ background:var(--paper-raised); border:1px solid var(--line); border-radius:12px; padding:1.3rem 1.3rem; }
+  .econ-card .amt{ font-family:'IBM Plex Mono'; font-size:1.9rem; font-weight:600; color:var(--accent); }
+  .econ-card .amt small{ font-size:.9rem; color:var(--ink-muted); font-weight:500; }
+  .econ-card ul{ margin:.9rem 0 0; padding-left:1.1rem; font-size:.86rem; color:var(--ink-muted); }
+  .econ-card li{ margin-bottom:.35rem; }
+
+  /* ---------- Roadmap list ---------- */
+  .status-table{ width:100%; border-collapse:collapse; margin-top:1.3rem; font-size:.92rem; }
+  .status-table td{ padding:.7rem .3rem; border-bottom:1px solid var(--line); vertical-align:top; }
+  .status-table tr:last-child td{ border-bottom:none; }
+  .status-table td:first-child{ width:9.5rem; font-family:'IBM Plex Mono'; font-size:.72rem; letter-spacing:.05em; text-transform:uppercase; color:var(--ink-faint); padding-top:.85rem; }
+
+  footer{ padding-top:2.5rem; display:flex; justify-content:space-between; gap:1rem; flex-wrap:wrap; font-size:.78rem; color:var(--ink-faint); }
+</style>
+</head>
+<body>
+<div class="doc">
+
+  <div class="cover">
+    <div class="cover-eyebrow"><span class="rule"></span> EXECUTIVE BRIEFING</div>
+    <h1>Charter</h1>
+    <p class="tagline">An internal AI system that reads a Business Requirements Document and drafts a scored, build-ready delivery plan — engineering plan, schedule, architecture, proof-of-concept scope, and technology options — in about ten minutes.</p>
+    <div class="cover-meta">
+      <span class="chip live">Live · Azure, Central India</span>
+      <span class="chip">Single-instance internal tool</span>
+      <span class="chip">Powered by OpenAI GPT‑4.1</span>
+    </div>
+  </div>
+
+  <section>
+    <p class="kicker">The problem</p>
+    <h2>Turning a BRD into a delivery plan is slow, manual, and inconsistent</h2>
+    <div class="col-2">
+      <p>Once a Business Requirements Document is signed off, an Engineering Manager still has to hand-produce five separate artifacts before a team can start: a phased plan, an effort and schedule estimate, a solution architecture, a proof-of-concept scope, and a technology recommendation. Each depends on the others, each should reflect the organization's own patterns and standards, and today none of that is checked before it lands on a manager's desk.</p>
+      <p>That work typically takes days, its quality depends on who happens to write it, and there is no consistent way to confirm a plan actually covers every requirement or matches how the organization has built similar things before. Charter automates the first draft of that work and grounds it in the organization's own knowledge — then scores it before a person ever sees it.</p>
+    </div>
+  </section>
+
+  <section>
+    <p class="kicker">How it works</p>
+    <h2>One BRD in, a scored delivery plan out</h2>
+    <p class="lede">Charter is not one model answering a prompt — it's a coordinator, five specialists, and a reviewer, wired as a graph with one deliberate loop back into itself.</p>
+
+    <figure class="diagram">
+      <svg viewBox="0 0 880 320" role="img" aria-label="The Orchestrator assigns each specialist its slice of the BRD; the five specialists run in sequence, each reading the previous one's output; the Critic scores every result and sends a failing deliverable back to its author, up to two rounds, before Assemble runs.">
+        <defs>
+          <marker id="arr" markerWidth="8" markerHeight="8" refX="6.5" refY="4" orient="auto">
+            <polygon points="0,0 8,4 0,8" fill="var(--ink-muted)" />
+          </marker>
+          <marker id="arrWarn" markerWidth="8" markerHeight="8" refX="6.5" refY="4" orient="auto">
+            <polygon points="0,0 8,4 0,8" fill="var(--warn)" />
+          </marker>
+        </defs>
+
+        <!-- control-plane nodes: ingest, orchestrator -->
+        <rect x="20" y="18" width="150" height="44" rx="8" fill="var(--paper-raised)" stroke="var(--line-strong)" stroke-width="1.5"/>
+        <text x="95" y="44" text-anchor="middle" font-size="13" font-weight="600" fill="var(--ink)">Ingest &amp; Parse</text>
+
+        <rect x="365" y="18" width="150" height="44" rx="8" fill="var(--paper-raised)" stroke="var(--line-strong)" stroke-width="1.5"/>
+        <text x="440" y="44" text-anchor="middle" font-size="13" font-weight="600" fill="var(--ink)">Orchestrator</text>
+
+        <line x1="170" y1="40" x2="358" y2="40" stroke="var(--ink-muted)" stroke-width="1.5" marker-end="url(#arr)"/>
+
+        <!-- orchestrator dispatch fan -->
+        <line x1="440" y1="62" x2="90"  y2="124" stroke="var(--ink-muted)" stroke-width="1" stroke-opacity="0.45" marker-end="url(#arr)"/>
+        <line x1="440" y1="62" x2="265" y2="124" stroke="var(--ink-muted)" stroke-width="1" stroke-opacity="0.45" marker-end="url(#arr)"/>
+        <line x1="440" y1="62" x2="440" y2="124" stroke="var(--ink-muted)" stroke-width="1" stroke-opacity="0.45" marker-end="url(#arr)"/>
+        <line x1="440" y1="62" x2="615" y2="124" stroke="var(--ink-muted)" stroke-width="1" stroke-opacity="0.45" marker-end="url(#arr)"/>
+        <line x1="440" y1="62" x2="790" y2="124" stroke="var(--ink-muted)" stroke-width="1" stroke-opacity="0.45" marker-end="url(#arr)"/>
+        <text x="440" y="77" text-anchor="middle" font-size="11" fill="var(--ink-faint)">assigns each specialist its slice</text>
+
+        <!-- five specialists, chained -->
+        <g font-family="inherit">
+          <rect x="20"  y="124" width="140" height="48" rx="8" fill="var(--accent-wash)" stroke="var(--line-strong)" stroke-width="1.5"/>
+          <rect x="195" y="124" width="140" height="48" rx="8" fill="var(--accent-wash)" stroke="var(--line-strong)" stroke-width="1.5"/>
+          <rect x="370" y="124" width="140" height="48" rx="8" fill="var(--accent-wash)" stroke="var(--line-strong)" stroke-width="1.5"/>
+          <rect x="545" y="124" width="140" height="48" rx="8" fill="var(--accent-wash)" stroke="var(--line-strong)" stroke-width="1.5"/>
+          <rect x="720" y="124" width="140" height="48" rx="8" fill="var(--accent-wash)" stroke="var(--line-strong)" stroke-width="1.5"/>
+
+          <text x="90"  y="140" text-anchor="middle" font-size="10" font-weight="600" fill="var(--accent)">01</text>
+          <text x="265" y="140" text-anchor="middle" font-size="10" font-weight="600" fill="var(--accent)">02</text>
+          <text x="440" y="140" text-anchor="middle" font-size="10" font-weight="600" fill="var(--accent)">03</text>
+          <text x="615" y="140" text-anchor="middle" font-size="10" font-weight="600" fill="var(--accent)">04</text>
+          <text x="790" y="140" text-anchor="middle" font-size="10" font-weight="600" fill="var(--accent)">05</text>
+
+          <text x="90"  y="158" text-anchor="middle" font-size="12.5" font-weight="600" fill="var(--ink)">Eng. Plan</text>
+          <text x="265" y="158" text-anchor="middle" font-size="12.5" font-weight="600" fill="var(--ink)">Schedule</text>
+          <text x="440" y="158" text-anchor="middle" font-size="12.5" font-weight="600" fill="var(--ink)">Architecture</text>
+          <text x="615" y="158" text-anchor="middle" font-size="12.5" font-weight="600" fill="var(--ink)">PoC Plan</text>
+          <text x="790" y="158" text-anchor="middle" font-size="12.5" font-weight="600" fill="var(--ink)">Tech Stack</text>
+        </g>
+
+        <line x1="160" y1="148" x2="188" y2="148" stroke="var(--ink)" stroke-width="1.75" marker-end="url(#arr)"/>
+        <line x1="335" y1="148" x2="363" y2="148" stroke="var(--ink)" stroke-width="1.75" marker-end="url(#arr)"/>
+        <line x1="510" y1="148" x2="538" y2="148" stroke="var(--ink)" stroke-width="1.75" marker-end="url(#arr)"/>
+        <line x1="685" y1="148" x2="713" y2="148" stroke="var(--ink)" stroke-width="1.75" marker-end="url(#arr)"/>
+        <text x="440" y="196" text-anchor="middle" font-size="11" fill="var(--ink-faint)">each specialist reads the previous one's output</text>
+
+        <!-- last specialist to critic -->
+        <polyline points="790,172 790,205 345,205 345,230" fill="none" stroke="var(--ink-muted)" stroke-width="1.5" marker-end="url(#arr)"/>
+
+        <!-- critic, assemble -->
+        <rect x="270" y="232" width="150" height="48" rx="8" fill="var(--paper-raised)" stroke="var(--line-strong)" stroke-width="1.5"/>
+        <text x="345" y="260" text-anchor="middle" font-size="13" font-weight="600" fill="var(--ink)">Critic</text>
+
+        <rect x="460" y="232" width="150" height="48" rx="8" fill="var(--paper-raised)" stroke="var(--line-strong)" stroke-width="1.5"/>
+        <text x="535" y="260" text-anchor="middle" font-size="13" font-weight="600" fill="var(--ink)">Assemble</text>
+
+        <line x1="420" y1="256" x2="453" y2="256" stroke="var(--good)" stroke-width="1.75" marker-end="url(#arr)"/>
+        <text x="436" y="246" text-anchor="middle" font-size="10.5" fill="var(--good)">all pass</text>
+
+        <!-- revision loop-back: the evaluator-optimizer path -->
+        <path d="M 300,232 C 255,200 260,178 288,172" fill="none" stroke="var(--warn)" stroke-width="1.75" stroke-dasharray="5 4" marker-end="url(#arrWarn)"/>
+        <text x="176" y="208" font-size="11" font-weight="600" fill="var(--warn)">revise · ≤ 2 rounds</text>
+      </svg>
+      <figcaption>The <b>Orchestrator</b> assigns each specialist its slice of the BRD. The five specialists then run in a fixed sequence, each reading the previous one's output. The <b>Critic</b> scores every result against the organization's own bar; anything below it is sent back to the specialist that produced it — up to two rounds — before <b>Assemble</b> compiles the final, scored document.</figcaption>
+    </figure>
+  </section>
+
+  <section>
+    <p class="kicker">What makes it reliable</p>
+    <h2>Four disciplines, working together</h2>
+    <div class="cap-grid">
+      <div class="cap"><span class="num">01</span><h3>Ingestion &amp; parsing</h3><p>Reads the uploaded document, splits it into sections, and classifies every sentence as functional, non-functional, a constraint, or an assumption — flagging anything ambiguous.</p></div>
+      <div class="cap"><span class="num">02</span><h3>Knowledge grounding</h3><p>Every agent retrieves relevant material from the organization's own past BRDs, templates, architecture patterns, and technology standards before it writes a word.</p></div>
+      <div class="cap"><span class="num">03</span><h3>Multi-agent generation</h3><p>Five specialists each produce one deliverable, building on each other's output — the schedule reads the plan's phases, the PoC reads the architecture's components.</p></div>
+      <div class="cap"><span class="num">04</span><h3>Validation &amp; evaluation</h3><p>A Critic scores every deliverable against the organization's own bar and forces revisions — nothing reaches the Engineering Manager unreviewed.</p></div>
+    </div>
+  </section>
+
+  <section>
+    <p class="kicker">The roster</p>
+    <h2>Eight AI roles, each doing one job</h2>
+    <p class="lede">Modeled on how a real planning team divides the work — a coordinator, five specialists, and a reviewer — with the model choice for each role matched to how demanding its task is.</p>
+    <div class="table-wrap">
+    <table class="roster">
+      <tr><th>Role</th><th>Responsibility</th><th>Model</th></tr>
+      <tr><td class="role">BRD Ingest &amp; Parse</td><td>Reads the document and classifies every requirement</td><td class="model">GPT‑4.1 mini</td></tr>
+      <tr><td class="role">Orchestrator</td><td>Routes sections to specialists and manages the run</td><td class="model">GPT‑4.1</td></tr>
+      <tr><td class="role">Engineering Plan Generator</td><td>Phases, risks, milestones, team composition — with a self-review pass before it hands off</td><td class="model">GPT‑4.1</td></tr>
+      <tr><td class="role">Schedule Estimator</td><td>Effort, timeline, and resourcing aligned to the plan's phases</td><td class="model">GPT‑4.1</td></tr>
+      <tr><td class="role">Solution Architect</td><td>System design, components, data flow, and non-functional coverage</td><td class="model">GPT‑4.1</td></tr>
+      <tr><td class="role">PoC Planner</td><td>Proof-of-concept scope with measurable, falsifiable success criteria</td><td class="model">GPT‑4.1</td></tr>
+      <tr><td class="role">Tech Stack Recommender</td><td>Two to three stack options weighed on cost, risk, and team fit</td><td class="model">GPT‑4.1</td></tr>
+      <tr><td class="role">Critic</td><td>Scores every deliverable and enforces the revision loop</td><td class="model">GPT‑4.1</td></tr>
+    </table>
+    </div>
+  </section>
+
+  <section>
+    <p class="kicker">The output</p>
+    <h2>Five deliverables, one document</h2>
+    <div class="deliverables">
+      <div class="dcard"><span class="glyph">Pl</span><h3>Engineering Plan</h3><p>Phases, risk register, milestones, team composition</p></div>
+      <div class="dcard"><span class="glyph">Sc</span><h3>Schedule &amp; Estimates</h3><p>Effort, timeline, resourcing, critical path</p></div>
+      <div class="dcard"><span class="glyph">Ar</span><h3>Solution Architecture</h3><p>Components, data flow, NFR mapping, key decisions</p></div>
+      <div class="dcard"><span class="glyph">Pc</span><h3>PoC Plan</h3><p>Scope, success criteria, exit decision</p></div>
+      <div class="dcard"><span class="glyph">Ts</span><h3>Tech Stack Options</h3><p>2–3 stacks, trade-offs, a recommendation</p></div>
+    </div>
+  </section>
+
+  <section>
+    <p class="kicker">The quality gate</p>
+    <h2>Nothing ships without a score</h2>
+    <p class="lede">Every deliverable is scored on four dimensions and rolled up into one of three badges — the same scorecard the Engineering Manager sees.</p>
+    <div class="table-wrap">
+    <table class="scorecard">
+      <tr><th>Deliverable</th><th>Badge</th><th>Overall</th><th>Complete</th><th>Consistent</th><th>Actionable</th><th>Grounded</th></tr>
+      <tr><td>Engineering Plan</td><td><span class="badge good">green</span></td><td>0.86</td><td>0.90</td><td>0.85</td><td>0.84</td><td>0.85</td></tr>
+      <tr><td>Schedule &amp; Estimates</td><td><span class="badge warn">amber</span></td><td>0.72</td><td>0.78</td><td>0.66</td><td>0.75</td><td>0.70</td></tr>
+      <tr><td>Solution Architecture</td><td><span class="badge good">green</span></td><td>0.86</td><td>0.88</td><td>0.84</td><td>0.83</td><td>0.87</td></tr>
+      <tr><td>PoC Plan</td><td><span class="badge good">green</span></td><td>0.94</td><td>0.95</td><td>0.93</td><td>0.94</td><td>0.94</td></tr>
+      <tr><td>Tech Stack Options</td><td><span class="badge good">green</span></td><td>0.98</td><td>0.99</td><td>0.97</td><td>0.98</td><td>0.98</td></tr>
+    </table>
+    </div>
+    <p style="margin-top:1rem;font-size:.86rem;color:var(--ink-muted)">Green ≥ 0.80 · Amber ≥ 0.60 · Red below 0.60. An amber or red score sends the deliverable back to its author with the Critic's specific issues attached — up to two rounds — before the run is allowed to finish.</p>
+  </section>
+
+  <section>
+    <p class="kicker">Proof, not a mock-up</p>
+    <h2>A real run through the system</h2>
+    <div class="examplebar">Sample analysis — an actual internal Charter run, shown here as a concrete illustration.<b>~9 min end-to-end</b></div>
+    <div class="stat-row">
+      <div class="stat"><div class="v">41</div><div class="l">Sections parsed</div></div>
+      <div class="stat"><div class="v">249</div><div class="l">Requirements classified</div></div>
+      <div class="stat"><div class="v">5 / 5</div><div class="l">Deliverables produced</div></div>
+      <div class="stat"><div class="v">0.93</div><div class="l">Average quality score</div></div>
+      <div class="stat"><div class="v">Green</div><div class="l">Overall readiness</div></div>
+    </div>
+  </section>
+
+  <section>
+    <p class="kicker">What it costs to run</p>
+    <h2>Infrastructure is fixed; usage is per analysis</h2>
+    <div class="econ">
+      <div class="econ-card">
+        <h3>Azure hosting</h3>
+        <div class="amt">$20–45 <small>/ month</small></div>
+        <ul>
+          <li>One always-on container, sized for internal traffic</li>
+          <li>Registry, storage, secrets, and monitoring</li>
+          <li>No dedicated infrastructure headcount required</li>
+        </ul>
+      </div>
+      <div class="econ-card">
+        <h3>OpenAI usage</h3>
+        <div class="amt">$0.50–1.50 <small>/ analysis</small></div>
+        <ul>
+          <li>Scales with how many BRDs are analyzed, not with idle time</li>
+          <li>Cheaper model reserved for document parsing</li>
+          <li>Revision rounds are the only thing that raises the per-run cost</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section style="border-bottom:none;">
+    <p class="kicker">Where it stands</p>
+    <h2>Status and what's next</h2>
+    <table class="status-table">
+      <tr><td>Today</td><td>Running end-to-end on Azure as a single-instance internal tool. An Engineering Manager uploads a BRD, watches (or steps away from) a background run, and reviews the scored result — with a history of every past run kept on file.</td></tr>
+      <tr><td>Scope</td><td>Built for one team's use at a time. There is no multi-user login yet — everyone who reaches the tool shares one workspace.</td></tr>
+      <tr><td>Next, if usage grows</td><td>Individual sign-in, a managed job queue in place of the current background-run model, and expanding the knowledge base with more of the organization's own delivered projects — which directly improves how well new plans are grounded.</td></tr>
+    </table>
+  </section>
+
+  <footer>
+    <span>Charter — internal engineering tool</span>
+    <span>Built on LangGraph, retrieval-augmented generation, and OpenAI GPT‑4.1</span>
+  </footer>
+
+</div>
+</body>
+</html>
