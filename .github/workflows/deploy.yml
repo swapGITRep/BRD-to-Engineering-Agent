@@ -31,19 +31,24 @@ jobs:
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
-      - name: Set image tag
-        run: echo "IMAGE_TAG=sha-${GITHUB_SHA::7}" >> "$GITHUB_ENV"
-
-      - name: Build image in ACR
+      - name: Set image tag and registry
         run: |
-          az acr build \
-            --registry "$ACR_NAME" \
-            --image "$IMAGE_NAME:$IMAGE_TAG" \
-            .
+          echo "IMAGE_TAG=sha-${GITHUB_SHA::7}" >> "$GITHUB_ENV"
+          echo "LOGIN_SERVER=$(az acr show --name $ACR_NAME --query loginServer -o tsv)" >> "$GITHUB_ENV"
+
+      # ACR Tasks (`az acr build`) is blocked on this subscription tier
+      # (TasksOperationsNotAllowed) — build on the runner and push directly,
+      # the same way local deploys already do with `docker buildx build --push`.
+      - name: Log in to ACR
+        run: az acr login --name "$ACR_NAME"
+
+      - name: Build and push image
+        run: |
+          docker build -t "$LOGIN_SERVER/$IMAGE_NAME:$IMAGE_TAG" .
+          docker push "$LOGIN_SERVER/$IMAGE_NAME:$IMAGE_TAG"
 
       - name: Deploy new revision to Container Apps
         run: |
-          LOGIN_SERVER=$(az acr show --name "$ACR_NAME" --query loginServer -o tsv)
           az containerapp update \
             --resource-group "$RESOURCE_GROUP" \
             --name "$CONTAINER_APP_NAME" \
