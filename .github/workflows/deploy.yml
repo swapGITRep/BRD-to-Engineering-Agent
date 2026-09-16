@@ -47,12 +47,19 @@ jobs:
           docker build -t "$LOGIN_SERVER/$IMAGE_NAME:$IMAGE_TAG" .
           docker push "$LOGIN_SERVER/$IMAGE_NAME:$IMAGE_TAG"
 
+      # --set-env-vars updates APP_BUILD in place without touching the rest of
+      # the env array (unlike --replace-env-vars). APP_BUILD is otherwise only
+      # set by the Bicep template on a full `az deployment group create` — a
+      # plain image update here would leave the UI's build badge stale even
+      # though the new image is live (confirmed live: this happened on the
+      # first CI-driven deploy).
       - name: Deploy new revision to Container Apps
         run: |
           az containerapp update \
             --resource-group "$RESOURCE_GROUP" \
             --name "$CONTAINER_APP_NAME" \
-            --image "$LOGIN_SERVER/$IMAGE_NAME:$IMAGE_TAG"
+            --image "$LOGIN_SERVER/$IMAGE_NAME:$IMAGE_TAG" \
+            --set-env-vars "APP_BUILD=$IMAGE_TAG"
 
       - name: Print app URL
         run: |
