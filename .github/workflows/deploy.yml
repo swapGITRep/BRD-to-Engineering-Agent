@@ -33,7 +33,7 @@ jobs:
 
       - name: Set image tag and registry
         run: |
-          echo "IMAGE_TAG=sha-${GITHUB_SHA::7}" >> "$GITHUB_ENV"
+          echo "IMAGE_TAG=v$(date -u +%Y%m%d%H%M)-${GITHUB_SHA::7}" >> "$GITHUB_ENV"
           echo "LOGIN_SERVER=$(az acr show --name $ACR_NAME --query loginServer -o tsv)" >> "$GITHUB_ENV"
 
       # ACR Tasks (`az acr build`) is blocked on this subscription tier
