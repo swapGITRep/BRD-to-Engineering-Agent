@@ -537,12 +537,16 @@ stated as explicit, checkable targets rather than only inferred from logs.
 
 ### 11.2 Pre-release gate checklist
 
-Run in order; a failure at any step blocks the release. Steps 1–2 are
-enforced today only by convention (run manually before every merge this
-session) — §11.4 covers closing that gap.
+Run in order; a failure at any step blocks the release. Step 1 is enforced by
+CI (`test` job, `.github/workflows/deploy.yml`); steps 2–3 are still run
+manually only — §11.4 covers that remaining gap.
 
 1. **Static/unit correctness** — `pytest tests/ -q` (166 tests) and `pyflakes`
-   over every touched file must both be clean.
+   over every touched file must both be clean. CI-enforced: the `test` job
+   runs both, with no Azure credentials or API keys required (every LLM/RAG
+   call in the suite is stubbed), and `build-and-deploy` declares
+   `needs: test` so it cannot run until this step passes — live-verified on
+   the first push after this was wired in.
 2. **Schema conformance** — for any change touching a specialist's output
    shape, `python scripts/verify_deliverables.py <deliverables.json>` against
    a recent real run must validate cleanly against `AGENT_SCHEMAS`.
@@ -576,14 +580,19 @@ not just failures. In production, two layers sit on top of that:
   for the running Container App, wired via `APPLICATIONINSIGHTS_CONNECTION_STRING`
   in `infra/main.bicep`.
 
-### 11.4 Known gap: gates 1–3 are not yet enforced by CI
+### 11.4 Known gap: gates 2–3 are not yet enforced by CI
 
-The GitHub Actions workflow currently goes straight from a push to `main` to
-building and deploying — it does not run `pytest`, `pyflakes`, or
-`scripts/run_eval.py` first. Today those three gates are run manually before
-every merge; a change that skips that manual step would still deploy. Closing
-this — adding a `test` job that gates `build-and-deploy` on green — is a
-direct, scoped follow-up, not a redesign.
+Gate 1 (lint + unit tests) is closed: `.github/workflows/deploy.yml` now has
+a `test` job that `build-and-deploy` depends on via `needs: test`, so a
+change that fails `pytest` or `pyflakes` cannot reach production.
+
+Gates 2 and 3 remain manual only. Neither is a `needs: test`-style addition:
+gate 2 (`scripts/verify_deliverables.py`) needs a real run's
+`deliverables.json` as input, not something CI produces on its own; gate 3
+(`scripts/run_eval.py`) makes real LLM calls against the 8-BRD labeled set,
+so wiring it into every push would need an `OPENAI_API_KEY` secret in CI and
+adds real cost and latency per run — a deliberate tradeoff to make explicitly
+if pursued, not a drop-in follow-up like gate 1 was.
 
 ## 12. Known Limitations
 
@@ -593,6 +602,7 @@ direct, scoped follow-up, not a redesign.
 - **No held-out benchmark with ground-truth outputs** — the eval set checks
   structural behavior, not "is this plan actually good" against a labeled
   answer.
-- **Pre-release gates are documented but not yet CI-enforced** — see §11.4.
+- **Schema-conformance and eval-regression gates are documented but not
+  CI-enforced** (lint + unit tests already are) — see §11.4.
 - **Only one deterministic tool exists** (`check_tech_radar_status`) — no
   external API/ticketing integration.
