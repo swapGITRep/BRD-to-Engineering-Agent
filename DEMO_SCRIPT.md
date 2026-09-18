@@ -173,6 +173,31 @@ code in this repo."
 
 ---
 
+## How to record this
+
+This is a script for a person to follow while recording a screen capture —
+there's no video file or automation to run. The talking points are cues, not
+a teleprompter: narrate them in your own words while performing the matching
+"Show" action.
+
+1. **Pick a screen recorder.** On Mac, QuickTime Player (File → New Screen
+   Recording) is built in and free. OBS Studio is a good free alternative if
+   you want picture-in-picture webcam or easier multi-source cuts.
+2. **Pre-stage every segment's "Show" cue before hitting record** — the
+   Streamlit UI open in one tab, a terminal ready with
+   `python scripts/run_eval.py` in another, `TECHNICAL_DESIGN.md` §2's
+   diagram open in a third, and so on. Don't navigate live while narrating;
+   have each screen one click away.
+3. **Record segment by segment.** Either one continuous take following the
+   segment order below, or a separate short clip per segment stitched
+   together afterward — the latter makes it easy to re-record just one
+   segment without redoing the whole thing.
+4. **Trim and stitch** in QuickTime's basic trim tool, iMovie, DaVinci
+   Resolve (free tier), or OBS's built-in cuts, to land in the 7–10 minute
+   target.
+5. **Export as .mp4** and link it from the README (or wherever it needs to
+   be submitted).
+
 ## Recording notes
 
 - Keep each segment's **Show** action cued up in a separate browser
