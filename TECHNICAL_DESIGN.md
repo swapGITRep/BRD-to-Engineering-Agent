@@ -152,7 +152,7 @@ early — there is nothing downstream to build on without parsed requirements.
 | UI | Streamlit, `st.navigation` | Background-thread job runner (§6.1) decouples pipeline execution from the Streamlit script lifecycle. |
 | Tracing | LangSmith (optional) | Auto-detected from `.env`; see `_configure_langsmith()`. |
 | Deployment | Azure Container Apps | Single always-on instance; see §9. |
-| Tests | pytest, 128 tests | Every LLM/RAG call stubbed; `tests/test_workflow_smoke.py` runs the real compiled graph end-to-end. |
+| Tests | pytest, 166 tests | Every LLM/RAG call stubbed; `tests/test_workflow_smoke.py` runs the real compiled graph end-to-end. |
 
 ## 5. Data Model
 
@@ -502,7 +502,7 @@ actual running build. Full provisioning/deploy commands: `infra/DEPLOY.md`.
 
 ## 10. Testing & Evaluation
 
-**Unit/integration tests** (`tests/`, 128 tests, `pytest tests/ -q`): every LLM
+**Unit/integration tests** (`tests/`, 166 tests, `pytest tests/ -q`): every LLM
 and RAG call is stubbed (`FakeLLM` in `conftest.py`); `test_workflow_smoke.py`
 runs the real compiled graph end-to-end including the revision loop.
 
@@ -515,7 +515,77 @@ counts, ambiguity flagging, completion — against each BRD's `expect` block,
 independent of and complementary to the Critic's own per-run scoring. See
 `README.md#evaluation`.
 
-## 11. Known Limitations
+## 11. Operationalization & Pre-Release Gates
+
+Two questions this section answers: what does "working" mean for this system
+at each level (not just "the Critic gave it a green badge"), and what has to
+be true before a change is allowed to reach production.
+
+### 11.1 Success and failure criteria, by level
+
+| Level | Success | Failure |
+|---|---|---|
+| **Artifact** (one specialist's output) | Critic `verdict = pass`, badge green/amber | badge red, or `status = failed` after exhausting `max_revisions_per_agent` |
+| **Run** (one BRD end to end) | `current_stage` reaches `Stage.COMPLETE`; every one of the 5 specialist artifacts has `status = ok` | pipeline lands in `Stage.FAILED`, or completes with one or more artifacts still `failed` |
+| **Eval set** (`scripts/run_eval.py`, 8 labeled BRDs) | every BRD's `expect` block passes (0 `expectation_failures`) — see §10 | any BRD fails its structural expectation (wrong stage, too few requirements, ambiguity under-flagged) |
+| **Release** (a merged change) | all gates in §11.2 pass | any gate fails — the change does not go out |
+| **Live service** | `GET /` on the deployed URL returns `HTTP 200`; `APP_BUILD` matches the image tag just deployed | non-200 response, or `APP_BUILD` stuck on a previous tag (a real bug hit and fixed this session — the badge silently went stale after a CI-driven image update that didn't also update the env var) |
+
+These were previously implicit (scattered across Critic verdicts and ad hoc
+manual checks during each deploy); this table is the first place they're
+stated as explicit, checkable targets rather than only inferred from logs.
+
+### 11.2 Pre-release gate checklist
+
+Run in order; a failure at any step blocks the release. Steps 1–2 are
+enforced today only by convention (run manually before every merge this
+session) — §11.4 covers closing that gap.
+
+1. **Static/unit correctness** — `pytest tests/ -q` (166 tests) and `pyflakes`
+   over every touched file must both be clean.
+2. **Schema conformance** — for any change touching a specialist's output
+   shape, `python scripts/verify_deliverables.py <deliverables.json>` against
+   a recent real run must validate cleanly against `AGENT_SCHEMAS`.
+3. **Behavioral regression** — `python scripts/run_eval.py` against the full
+   8-BRD labeled set. Required: 8/8 `expect` blocks pass. Reviewed but not
+   blocking: `revision_improvement` deltas and badge distribution vs. the
+   previous run's `summary.json` — a quality *regression* (e.g. a badge
+   flipping green→amber on an unrelated BRD) is a signal to investigate
+   before merging, even though the eval harness itself won't fail on it.
+4. **CI build** — the `build-and-deploy` GitHub Actions workflow
+   (`.github/workflows/deploy.yml`) must go green: OIDC login, image
+   build/push to ACR, `az containerapp update`.
+5. **Post-deploy live verification** — confirm `APP_BUILD` on the running
+   revision matches the tag just pushed (`az containerapp show ... --query
+   properties.template.containers[0].env`), and that the live URL returns
+   `HTTP 200`. Both were fixed as *live-caught* bugs this session (a stale
+   `APP_BUILD` badge, and an `ImagePullBackOff` from a bad push) — this step
+   exists because both slipped through everything before it.
+
+### 11.3 Logging & monitoring coverage
+
+Every agent module (`agents/*_agent.py`) uses a per-module
+`logging.getLogger(__name__)` logger and logs stage entry/exit, counts (e.g.
+sections extracted, badges assigned), and every revision routing decision —
+not just failures. In production, two layers sit on top of that:
+
+- **LangSmith** (`LANGCHAIN_TRACING_V2=true`, `LANGCHAIN_PROJECT=brd-dev-agent`)
+  traces every individual LLM call across all agents, including retries —
+  the UI surfaces whether tracing is actively connected (§6.1).
+- **Application Insights** (Azure) — infrastructure-level metrics and logs
+  for the running Container App, wired via `APPLICATIONINSIGHTS_CONNECTION_STRING`
+  in `infra/main.bicep`.
+
+### 11.4 Known gap: gates 1–3 are not yet enforced by CI
+
+The GitHub Actions workflow currently goes straight from a push to `main` to
+building and deploying — it does not run `pytest`, `pyflakes`, or
+`scripts/run_eval.py` first. Today those three gates are run manually before
+every merge; a change that skips that manual step would still deploy. Closing
+this — adding a `test` job that gates `build-and-deploy` on green — is a
+direct, scoped follow-up, not a redesign.
+
+## 12. Known Limitations
 
 - **Single instance only.** No horizontal scaling without moving the
   checkpointer to Postgres and the RAG index to a real vector DB (a documented
@@ -523,8 +593,6 @@ independent of and complementary to the Critic's own per-run scoring. See
 - **No held-out benchmark with ground-truth outputs** — the eval set checks
   structural behavior, not "is this plan actually good" against a labeled
   answer.
-- **Revision loop has no "measurable gains" report** — the mechanism works
-  (verified live) but before/after scores across a revision aren't surfaced
-  as a first-class metric, only reconstructable from logs.
+- **Pre-release gates are documented but not yet CI-enforced** — see §11.4.
 - **Only one deterministic tool exists** (`check_tech_radar_status`) — no
   external API/ticketing integration.
