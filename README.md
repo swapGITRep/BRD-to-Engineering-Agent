@@ -11,16 +11,20 @@
 
 ## What it does
 
-1. **Ingest & parse** — reads a BRD (`.md` / `.txt` / `.docx` / `.pdf`), splits it
-   into sections, classifies each requirement (functional / non-functional /
-   constraint / assumption / out-of-scope, priority, NFR category, ambiguity),
-   and tags project metadata.
+1. **Ingest & parse** — reads a BRD (`.md` / `.txt` / `.docx` / `.pdf`), scans
+   and redacts confidentiality-sensitive content (credentials, PII) before
+   anything reaches a model call, splits it into sections, classifies each
+   requirement (functional / non-functional / constraint / assumption /
+   out-of-scope, priority, NFR category, ambiguity), and tags project
+   metadata.
 2. **Ground everything (RAG)** — every agent is grounded in a knowledge base of
    past deliveries, templates, architecture patterns, estimation heuristics, and
    org standards (`knowledge_base/corpus/`).
 3. **Generate (5 specialist agents)** — Engineering Plan (with a Reflection
    self-review step), Schedule Estimator, Solution Architect, PoC Planner, Tech
-   Stack Recommender.
+   Stack Recommender. Every output is validated against a pydantic schema
+   (retried once on failure) plus deterministic cross-agent contract checks
+   (e.g. a PoC module must map to a real Architecture component).
 4. **Validate & evaluate** — one Critic scores each deliverable on
    completeness · consistency · actionability · groundedness, enforces a
    per-agent revision loop, and assigns 🟢 / 🟡 / 🔴 quality badges.
