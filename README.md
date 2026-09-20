@@ -174,6 +174,9 @@ numbers across a change.
 
 ## Deployment
 
-See [PLAN.md](PLAN.md) §12 — Azure Container Apps (single always-on web process),
-Azure Files for the vector index + checkpoints, Blob for artifacts, Key Vault for
-secrets, GitHub Actions (OIDC) for CI/CD. Bicep + `azd` supported.
+See [infra/DEPLOY.md](infra/DEPLOY.md) — Azure Container Apps (single
+always-on web process), two Azure Files shares (`vectorstore`, `output`;
+the LangGraph checkpoint DB deliberately lives on local container disk
+instead — SQLite's file locking is unreliable over SMB), Key Vault (RBAC)
+for secrets, GitHub Actions (OIDC) for CI/CD with a `test` job (lint + full
+suite) gating every deploy. Bicep + `azd` supported.
