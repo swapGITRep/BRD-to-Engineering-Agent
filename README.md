@@ -31,15 +31,40 @@
 
 ## Architecture
 
-```
-Streamlit UI ──► LangGraph pipeline (SqliteSaver checkpoints)
+Streamlit UI ──► LangGraph pipeline (SqliteSaver checkpoints), nine nodes
+sharing one state object.
 
-  brd_ingest ─► orchestrator ─► engineering_plan ─► schedule ─► architecture
-             ─► poc_plan ─► tech_stack ─► critic ──(revise)──► failing agent
-                                             └──(pass)──► assemble ─► END
+```mermaid
+flowchart TD
+    START([User: Run analysis]) --> ING[brd_ingest]
+    ING -- ok --> ORCH[orchestrator]
+    ING -- failed --> END1([END — failed])
+    ORCH --> EP[engineering_plan]
+    EP --> SCH[schedule]
+    SCH --> ARCH[architecture]
+    ARCH --> POC[poc_plan]
+    POC --> TECH[tech_stack]
+    TECH --> CRIT{critic}
+    CRIT -- verdict=revise, budget left --> EP
+    CRIT -- verdict=revise, budget left --> SCH
+    CRIT -- verdict=revise, budget left --> ARCH
+    CRIT -- verdict=revise, budget left --> POC
+    CRIT -- verdict=revise, budget left --> TECH
+    CRIT -- all pass / budget exhausted --> ASM[assemble]
+    ASM --> END2([END — complete])
 
-  rag_retriever (knowledge_base/corpus) — grounding for every agent
+    RAG[(RAG retriever\nknowledge_base/corpus)] -.grounds.-> EP
+    RAG -.grounds.-> SCH
+    RAG -.grounds.-> ARCH
+    RAG -.grounds.-> POC
+    RAG -.grounds.-> TECH
+    RAG -.verifies citations.-> CRIT
 ```
+
+A revised specialist routes straight back to the Critic, not the next stage
+in the chain. Full rationale for each node — orchestration pattern choices,
+schema contracts, the revision loop's scoring — is in
+[TECHNICAL_DESIGN.md](TECHNICAL_DESIGN.md) §3.
 
 | Agent | Role |
 | --- | --- |
