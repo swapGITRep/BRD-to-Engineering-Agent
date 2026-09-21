@@ -22,11 +22,11 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Type
 
-from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
-from pydantic import BaseModel, ValidationError
+from langchain_core.messages import HumanMessage, SystemMessage
+from pydantic import BaseModel
 
 from orchestration.state import AgentArtifact, ArtifactStatus, BRDState, Stage
-from skills.json_utils import extract_json
+from skills.json_utils import invoke_validated_json
 from skills.llm_factory import get_llm
 from skills.rag_retriever import get_retriever
 
@@ -122,39 +122,16 @@ def invoke_json(
     against the (schema-validated) dict and returns a list of problem
     strings — used for checks a schema can't express, like a cross-agent
     contract (e.g. the PoC Planner's modules must map to real architecture
-    components). Both share the single retry budget below."""
+    components). Both share the single retry budget in
+    skills/json_utils.py::invoke_validated_json."""
     llm = get_llm(llm_agent_name, llm_config_of(state))
-    messages = [SystemMessage(content=system_prompt), HumanMessage(content=user_prompt)]
-
-    def _parse_and_validate(text: str) -> Dict[str, Any]:
-        data = extract_json(text)
-        if schema is not None:
-            try:
-                data = schema.model_validate(data).model_dump(by_alias=True)
-            except ValidationError as e:
-                raise ValueError(f"response did not match the required schema: {e}") from e
-        if extra_check is not None:
-            problems = extra_check(data)
-            if problems:
-                raise ValueError("response failed a contract check: " + "; ".join(problems))
-        return data
-
-    resp = llm.invoke(messages)
-    try:
-        return _parse_and_validate(resp.content)
-    except ValueError as e:
-        logger.warning("invoke_json(%s): %s — retrying once with the problem fed back",
-                        llm_agent_name, e)
-        messages += [
-            AIMessage(content=resp.content),
-            HumanMessage(content=(
-                f"That response had a problem: {e}\n"
-                "Return ONLY the corrected, complete, valid JSON object — no "
-                "markdown fences, no commentary, nothing before or after it."
-            )),
-        ]
-        resp = llm.invoke(messages)
-        return _parse_and_validate(resp.content)
+    return invoke_validated_json(
+        llm,
+        [SystemMessage(content=system_prompt), HumanMessage(content=user_prompt)],
+        schema=schema,
+        extra_check=extra_check,
+        label=llm_agent_name,
+    )
 
 
 # ─────────────────────────────────────────────────────────────────────────────
