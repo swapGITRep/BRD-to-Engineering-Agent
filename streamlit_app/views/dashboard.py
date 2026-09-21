@@ -8,7 +8,7 @@ from streamlit_app.lib import (
     overall_badge_banner, render_job_watcher, render_stage_tracker, run_analysis, scorecard_df,
 )
 
-st.title("Autonomous BRD Analysis")
+st.title("Multi-agent BRD Analysis")
 st.caption("Parse a BRD → ground agents in org knowledge (RAG) → generate plan, schedule, "
            "architecture, PoC, and tech-stack options → score and revise.")
 

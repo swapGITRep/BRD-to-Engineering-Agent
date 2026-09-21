@@ -1,7 +1,7 @@
 # IK_BRD_Dev_Agent — Implementation Plan
 
-> Transform the current repo (an exact clone of the ETL agent skeleton) into an
-> autonomous **BRD analysis multi-agent system**: ingest a Business Requirements
+> Transform the current repo (an exact clone of the ETL agent skeleton) into a
+> **BRD analysis multi-agent workflow**: ingest a Business Requirements
 > Document, ground every agent in organizational knowledge (RAG), run 5 specialist
 > agents to produce delivery artifacts, and score + revise them before presenting
 > quality badges to the Engineering Manager.
@@ -451,7 +451,7 @@ output:
 
 ## 10. Streamlit UI — `streamlit_app/`
 
-- `app.py`: rebrand ("Autonomous BRD Analysis"). Sidebar: single **OpenAI API Key**
+- `app.py`: rebrand ("Multi-agent BRD Analysis"). Sidebar: single **OpenAI API Key**
   password field → `os.environ["OPENAI_API_KEY"]`. Stat cards: Requirements parsed /
   Deliverables generated / Avg quality score / Revisions triggered / Overall badge.
   Replace sample-story selector with a BRD **file uploader** (`.docx/.pdf/.md`) +

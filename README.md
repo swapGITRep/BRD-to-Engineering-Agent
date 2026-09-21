@@ -1,6 +1,6 @@
 # BRD Dev Agent
 
-> Autonomous multi-agent system that turns a **Business Requirements Document**
+> A multi-agent workflow that turns a **Business Requirements Document**
 > into a delivery package — engineering plan, schedule, solution architecture,
 > PoC plan, and technology-stack options — each scored and revised before it
 > reaches the Engineering Manager.
@@ -71,16 +71,23 @@ in the chain. Full rationale for each node — orchestration pattern choices,
 schema contracts, the revision loop's scoring — is in
 [TECHNICAL_DESIGN.md](TECHNICAL_DESIGN.md) §3.
 
-| Agent | Role |
-| --- | --- |
-| BRD Ingest | Load the BRD, redact credentials/PII, split into sections, classify requirements and tag project metadata (`gpt-4.1-mini`) |
-| Orchestrator | Route BRD sections to specialists; manage state; revision routing |
-| Engineering Plan Generator | Phases, risks, milestones, team — with a Reflection self-review |
-| Schedule Estimator | Effort, timeline, resource matrix, critical path (aligned to the plan) |
-| Solution Architect | Components, data flows, NFR mapping, key decisions, Mermaid diagram |
-| PoC Planner | Falsifiable goal, modules mapped to architecture, measurable success criteria |
-| Tech Stack Recommender | 2–3 stack options + trade-offs + a recommendation |
-| Critic | Score deliverables, enforce the revision loop, emit quality badges |
+A **node** is one step in the graph: a function that reads the shared state and
+returns changes to it. An **agent** is a node that calls an LLM — `assemble` does
+not, so it is the one node that isn't counted as an agent. The order is fixed in
+code (see the diagram); the only dynamic routing is the Critic sending a failing
+specialist back for revision.
+
+| # | Node | Agent? | What it does | LLM calls |
+| --- | --- | --- | --- | --- |
+| 1 | `brd_ingest` | Yes | Loads the BRD, redacts credentials/PII, splits it into sections, classifies each requirement (type, priority, NFR category, ambiguity) and tags project metadata | One per section, plus one for metadata (`gpt-4.1-mini`) |
+| 2 | `orchestrator` | Yes | Decides which sections each specialist sees (`routing_map`) and writes a 2–3 sentence BRD summary that drives the RAG queries; on a Critic revision it just passes through to the failing specialist | One (the summary) — routing is plain Python; none on a revision re-entry |
+| 3 | `engineering_plan` | Yes | Phases, risks, milestones and team — drafted, self-reviewed (Reflection), then revised if the review asks | Up to three: draft, review, revise |
+| 4 | `schedule` | Yes | Effort, timeline, resource matrix and critical path; its phases must match the plan's | One |
+| 5 | `architecture` | Yes | Components, data flows, NFR mapping, key decisions and a Mermaid diagram | One |
+| 6 | `poc_plan` | Yes | A falsifiable goal, modules mapped to real architecture components, measurable success criteria | One |
+| 7 | `tech_stack` | Yes | 2–3 stack options with trade-offs and a recommendation, checked against the org tech radar | One, plus a tool-call loop (up to 6 hops) against the radar |
+| 8 | `critic` | Yes | Scores each deliverable on completeness, consistency, actionability and groundedness, applies the deterministic caps, picks at most one agent to revise, and assigns 🟢 / 🟡 / 🔴 badges | One per artifact scored |
+| 9 | `assemble` | **No** | Compiles the scored deliverables into one Markdown response document with a quality scorecard and revision-improvement table, and saves the report, manifest and bundled JSON | None — deterministic |
 
 ---
 
