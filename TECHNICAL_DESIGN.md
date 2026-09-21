@@ -10,7 +10,7 @@
 ## 1. Purpose & Audience
 
 This document is the engineering reference for **Charter** (internal name: IK BRD
-Dev Agent) — an autonomous multi-agent system that turns a Business Requirements
+Dev Agent) — a multi-agent workflow that turns a Business Requirements
 Document into a scored, delivery-ready plan. It is written for engineers who need
 to extend, debug, or operate the system, and assumes familiarity with Python,
 LLM-based agent systems, and basic LangGraph concepts. For a product-level
