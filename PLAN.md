@@ -46,7 +46,7 @@ No Azure OpenAI, no Gemini.
 
 ---
 
-## 2. The 4 capabilities → the 7 agents
+## 2. The 4 capabilities → the 8 agents
 
 | Capability | Delivered by |
 |---|---|
@@ -57,20 +57,23 @@ No Azure OpenAI, no Gemini.
 
 | # | Agent | Discipline | Responsibility |
 |---|---|---|---|
-| 1 | **Orchestrator** | Orchestration | Route BRD sections to specialists; manage state; handle errors and retries. Pure router on revision re-entry. |
-| 2 | **Engineering Plan Generator** | Planning | Phases, risks, milestones, team composition. Runs a **Reflection** (draft → self-critique → revise) step internally. |
-| 3 | **Schedule Estimator** | Planning | Effort estimates, timelines, resource allocation. Phase names/order must align to the plan. |
-| 4 | **Solution Architect** | Design | High-level system design, components, data flows, NFR mapping. |
-| 5 | **PoC Planner** | Design | PoC scope, measurable success criteria, modular boundaries mapped to architecture components. |
-| 6 | **Tech Stack Recommender** | Design | 2–3 stack options with trade-offs (scalability, team familiarity, integration risk, cost) + a recommendation. |
-| 7 | **Critic** | Validation | Score every artifact on completeness, consistency, actionability, groundedness. Enforce the revision loop; emit badges. |
+| 1 | **BRD Ingest** | Ingestion | Load the BRD, redact credentials/PII, split into sections, classify requirements, tag project metadata (`gpt-4.1-mini`). |
+| 2 | **Orchestrator** | Orchestration | Route BRD sections to specialists; manage state; handle errors and retries. Pure router on revision re-entry. |
+| 3 | **Engineering Plan Generator** | Planning | Phases, risks, milestones, team composition. Runs a **Reflection** (draft → self-critique → revise) step internally. |
+| 4 | **Schedule Estimator** | Planning | Effort estimates, timelines, resource allocation. Phase names/order must align to the plan. |
+| 5 | **Solution Architect** | Design | High-level system design, components, data flows, NFR mapping. |
+| 6 | **PoC Planner** | Design | PoC scope, measurable success criteria, modular boundaries mapped to architecture components. |
+| 7 | **Tech Stack Recommender** | Design | 2–3 stack options with trade-offs (scalability, team familiarity, integration risk, cost) + a recommendation. |
+| 8 | **Critic** | Validation | Score every artifact on completeness, consistency, actionability, groundedness. Enforce the revision loop; emit badges. |
+
+(A ninth node, `assemble`, compiles the final document deterministically — no LLM call, so it isn't counted as an agent.)
 
 ---
 
 ## 3. LLM provider — OpenAI `gpt-4.1` for all agents
 
 The ETL skeleton hard-codes Azure wiring inline in every agent. **Recommendation:
-centralize it in one factory** instead of repeating it across 7 new agents.
+centralize it in one factory** instead of repeating it across 8 new agents.
 
 ### 3.1 New: `skills/llm_factory.py`
 
@@ -453,7 +456,7 @@ output:
   Deliverables generated / Avg quality score / Revisions triggered / Overall badge.
   Replace sample-story selector with a BRD **file uploader** (`.docx/.pdf/.md`) +
   sample picker.
-- `components/agent_status.py` → 7-agent stage tracker.
+- `components/agent_status.py` → 8-agent stage tracker.
 - `components/code_viewer.py` → `deliverable_viewer.py`: render each deliverable's
   markdown + `CriticScore` badge + expandable issues/citations. Render architecture
   Mermaid.
@@ -622,7 +625,7 @@ checkpointer is a **single-writer file**. Therefore:
   builds are slow). Pay per vCPU-second.
 - File shares + Blob: cents at this scale.
 - Log Analytics: set a daily cap, 30-day retention.
-- **Dominant cost is OpenAI usage**, not Azure infra. A full 7-agent run with
+- **Dominant cost is OpenAI usage**, not Azure infra. A full 8-agent run with
   Reflection + one revision loop is a few dozen `gpt-4.1` calls. Keep LangSmith on
   to watch per-run token spend; `brd_ingest` already downshifts to `gpt-4.1-mini`.
 - Tier 2 adds real cost (PostgreSQL Flexible burstable + Azure AI Search Basic) —
@@ -705,7 +708,7 @@ Removed: `langchain-openai` Azure usage, `PyGithub`, `pyflakes`, `black`,
 ## 15. Key recommendations (summary)
 
 1. **Centralize LLM construction** in `skills/llm_factory.py` — don't copy the
-   ETL skeleton's inline `ChatOpenAI(...)` into 7 agents.
+   ETL skeleton's inline `ChatOpenAI(...)` into 8 agents.
 2. **One Critic node**, not a critic per agent — it needs cross-artifact context
    to score consistency, and it owns the single `pending_revision` router.
 3. **Reflection lives inside the plan generator** (3 calls in one node), keeping
