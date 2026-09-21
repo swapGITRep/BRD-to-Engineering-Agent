@@ -33,8 +33,9 @@ agents, one shared state, grounded in a real knowledge base."
 read raw markdown), then a quick pass over `agents/` in the file tree.
 
 **Say:**
-- "Seven agents: Orchestrator, five specialists that run in a fixed
-  sequence, and one Critic — not a single do-everything prompt."
+- "Eight agents: an Ingest agent, the Orchestrator, five specialists that
+  run in a fixed sequence, and one Critic — plus a deterministic assembler
+  — not a single do-everything prompt."
 - Name the composed orchestration pattern and *why*: prompt-chaining for
   the five specialists, orchestrator-workers for routing, evaluator-optimizer
   for the Critic's revision loop, reflection inside the Engineering Plan

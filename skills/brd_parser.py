@@ -8,6 +8,10 @@ Capability 1 — BRD Ingestion & Parsing.
   classify_requirements(secs, llm) → [Requirement]          (one LLM call / section)
   tag_metadata(secs, llm)          → dict                   (one LLM call)
 
+Both LLM replies are validated against a pydantic schema (skills/schemas.py)
+and retried once with the exact problem fed back — the same guarantee the
+specialist agents get from invoke_json().
+
 The LLM object passed in only needs an `.invoke(messages) -> obj.content` method,
 so it can be a real `ChatOpenAI` or a test double.
 ─────────────────────────────────────────────────────────────────────────────
@@ -22,7 +26,8 @@ from typing import Any, Dict, List
 from langchain_core.messages import HumanMessage, SystemMessage
 
 from orchestration.state import BRDSection, Requirement
-from skills.json_utils import extract_json as _extract_json
+from skills.json_utils import invoke_validated_json
+from skills.schemas import ProjectMetadata, RequirementsResponse
 
 logger = logging.getLogger(__name__)
 
@@ -215,19 +220,23 @@ def classify_requirements(sections: List[BRDSection], llm: Any) -> List[Requirem
         if len(section["raw_text"]) < _MIN_SECTION_CHARS:
             continue
         try:
-            resp = llm.invoke([
-                SystemMessage(content=_CLASSIFY_SYSTEM),
-                HumanMessage(content=(
-                    f"SECTION TITLE: {section['title']}\n\n"
-                    f"SECTION TEXT:\n{section['raw_text']}"
-                )),
-            ])
-            parsed = _extract_json(resp.content)
+            parsed = invoke_validated_json(
+                llm,
+                [
+                    SystemMessage(content=_CLASSIFY_SYSTEM),
+                    HumanMessage(content=(
+                        f"SECTION TITLE: {section['title']}\n\n"
+                        f"SECTION TEXT:\n{section['raw_text']}"
+                    )),
+                ],
+                schema=RequirementsResponse,
+                label=f"brd_ingest:classify:{section['section_id']}",
+            )
         except Exception as e:  # noqa: BLE001 - one bad section must not abort ingest
             logger.warning("classify_requirements failed for %s: %s", section["section_id"], e)
             continue
 
-        for raw in parsed.get("requirements", []) or []:
+        for raw in parsed["requirements"]:
             coerced = _coerce_requirement(raw, section["section_id"], len(out) + 1)
             if coerced:
                 out.append(coerced)
@@ -241,19 +250,34 @@ def _coerce_requirement(raw: Dict[str, Any], section_id: str, ordinal: int) -> R
     if not text:
         return None
 
-    rtype = str(raw.get("type", "functional")).strip().lower()
-    if rtype not in _VALID_TYPES:
-        rtype = "functional"
-
     nfr = raw.get("nfr_category")
     nfr = str(nfr).strip().lower() if nfr not in (None, "", "null") else None
     if nfr not in _VALID_NFR:
         nfr = None
+
+    rtype = str(raw.get("type", "functional")).strip().lower()
+    if rtype in _VALID_NFR:
+        # The model put an NFR *category* in the `type` field (seen live:
+        # type="security"). Its intent is unambiguous — a non-functional
+        # requirement of that category — so map it rather than let the
+        # fallback below silently relabel it "functional". An explicit,
+        # valid nfr_category on the same item is the more specific field
+        # and wins.
+        logger.info("R%03d: type %r is an NFR category — mapped to non_functional/%s",
+                    ordinal, rtype, nfr or rtype)
+        nfr = nfr or rtype
+        rtype = "non_functional"
+    elif rtype not in _VALID_TYPES:
+        logger.warning("R%03d: unrecognised requirement type %r — treated as 'functional'",
+                       ordinal, raw.get("type"))
+        rtype = "functional"
     if rtype != "non_functional":
         nfr = None
 
     priority = str(raw.get("priority", "should")).strip().lower()
     if priority not in _VALID_PRIORITY:
+        logger.warning("R%03d: unrecognised priority %r — treated as 'should'",
+                       ordinal, raw.get("priority"))
         priority = "should"
 
     return Requirement(
@@ -293,13 +317,17 @@ def tag_metadata(sections: List[BRDSection], llm: Any) -> Dict[str, Any]:
     """Extract project-level metadata from the whole BRD."""
     doc = "\n\n".join(f"## {s['title']}\n{s['raw_text']}" for s in sections)[:16000]
     try:
-        resp = llm.invoke([
-            SystemMessage(content=_METADATA_SYSTEM),
-            HumanMessage(content=f"BRD:\n{doc}"),
-        ])
-        parsed = _extract_json(resp.content)
+        parsed = invoke_validated_json(
+            llm,
+            [
+                SystemMessage(content=_METADATA_SYSTEM),
+                HumanMessage(content=f"BRD:\n{doc}"),
+            ],
+            schema=ProjectMetadata,
+            label="brd_ingest:metadata",
+        )
     except Exception as e:  # noqa: BLE001
         logger.warning("tag_metadata failed: %s", e)
-        parsed = {}
+        parsed = ProjectMetadata().model_dump()
 
-    return {key: parsed.get(key, "" if key == "project_name" else []) for key in _METADATA_KEYS}
+    return {key: parsed[key] for key in _METADATA_KEYS}

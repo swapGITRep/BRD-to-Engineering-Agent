@@ -117,11 +117,96 @@ class TestClassifyRequirements:
         assert llm.call_count == 1          # short section not sent
 
     def test_bad_json_from_one_section_is_skipped(self, fake_llm):
+        # Section A fails twice (the reply and its one retry), so it is
+        # dropped; section B is unaffected.
         secs = extract_sections("# 1. A\nLong enough text here to be classified please.\n"
                                 "# 2. B\nAnother sufficiently long section of text here.")
-        llm = fake_llm("not json at all", {"requirements": [{"text": "Ok.", "type": "functional"}]})
+        llm = fake_llm("not json at all", "still not json",
+                       {"requirements": [{"text": "Ok.", "type": "functional"}]})
         reqs = classify_requirements(secs, llm)
         assert len(reqs) == 1
+        assert reqs[0]["section_id"] == "S002"
+        assert llm.call_count == 3
+
+    def test_schema_violation_is_retried_once_with_the_problem_fed_back(self, fake_llm):
+        # `requirements` as a string is valid JSON but the wrong shape — it
+        # used to reach `.get(...)` unchecked. Now it is a schema failure.
+        secs = extract_sections("# 1. Stuff\nThis section has enough text to be classified.")
+        llm = fake_llm(
+            {"requirements": "the system must do X"},
+            {"requirements": [{"text": "The system must do X.", "type": "functional"}]},
+        )
+        reqs = classify_requirements(secs, llm)
+        assert [r["text"] for r in reqs] == ["The system must do X."]
+        assert llm.call_count == 2
+        feedback = llm.calls[1][-1].content
+        assert "did not match the required schema" in feedback
+
+    def test_top_level_json_array_is_retried_not_a_crash(self, fake_llm):
+        # A bare JSON array parses fine, then used to blow up on `.get`.
+        secs = extract_sections("# 1. Stuff\nThis section has enough text to be classified.")
+        llm = fake_llm([{"text": "X."}],
+                       {"requirements": [{"text": "X.", "type": "functional"}]})
+        reqs = classify_requirements(secs, llm)
+        assert len(reqs) == 1
+        assert llm.call_count == 2
+
+    def test_requirement_missing_text_is_retried(self, fake_llm):
+        secs = extract_sections("# 1. Stuff\nThis section has enough text to be classified.")
+        llm = fake_llm(
+            {"requirements": [{"type": "functional", "priority": "must"}]},
+            {"requirements": [{"text": "Do X.", "type": "functional", "priority": "must"}]},
+        )
+        reqs = classify_requirements(secs, llm)
+        assert [r["text"] for r in reqs] == ["Do X."]
+        assert llm.call_count == 2
+
+    def test_valid_reply_costs_no_retry_and_tolerates_extra_fields(self, fake_llm):
+        secs = extract_sections("# 1. Stuff\nThis section has enough text to be classified.")
+        llm = fake_llm({"requirements": [
+            {"text": "Do X.", "type": "Functional", "priority": "MUST", "rationale": "extra"},
+        ]})
+        reqs = classify_requirements(secs, llm)
+        assert reqs[0]["type"] == "functional" and reqs[0]["priority"] == "must"
+        assert llm.call_count == 1
+
+    def test_nfr_category_in_type_field_maps_to_non_functional(self, fake_llm):
+        # Seen live on gpt-4.1-mini: type="security". That used to be
+        # silently relabelled "functional", losing the NFR classification.
+        secs = extract_sections("# 1. Stuff\nThis section has enough text to be classified.")
+        llm = fake_llm({"requirements": [
+            {"text": "Encrypt data at rest.", "type": "security", "priority": "must"},
+            {"text": "Respond in 1s.", "type": "Performance"},
+        ]})
+        reqs = classify_requirements(secs, llm)
+        assert [(r["type"], r["nfr_category"]) for r in reqs] == [
+            ("non_functional", "security"), ("non_functional", "performance"),
+        ]
+        assert llm.call_count == 1                     # deterministic — no retry
+
+    def test_explicit_nfr_category_wins_over_the_one_in_type(self, fake_llm):
+        secs = extract_sections("# 1. Stuff\nThis section has enough text to be classified.")
+        llm = fake_llm({"requirements": [
+            {"text": "Audit every access.", "type": "security", "nfr_category": "compliance"},
+        ]})
+        reqs = classify_requirements(secs, llm)
+        assert (reqs[0]["type"], reqs[0]["nfr_category"]) == ("non_functional", "compliance")
+
+    def test_genuinely_unknown_type_still_falls_back_and_warns(self, fake_llm, caplog):
+        secs = extract_sections("# 1. Stuff\nThis section has enough text to be classified.")
+        llm = fake_llm({"requirements": [{"text": "Do X.", "type": "banana"}]})
+        with caplog.at_level("WARNING", logger="skills.brd_parser"):
+            reqs = classify_requirements(secs, llm)
+        assert reqs[0]["type"] == "functional" and reqs[0]["nfr_category"] is None
+        assert "unrecognised requirement type 'banana'" in caplog.text
+
+    def test_value_coercion_is_no_longer_silent(self, fake_llm, caplog):
+        secs = extract_sections("# 1. Stuff\nThis section has enough text to be classified.")
+        llm = fake_llm({"requirements": [{"text": "Do X.", "type": "banana", "priority": "urgent"}]})
+        with caplog.at_level("WARNING", logger="skills.brd_parser"):
+            classify_requirements(secs, llm)
+        assert "unrecognised requirement type 'banana'" in caplog.text
+        assert "unrecognised priority 'urgent'" in caplog.text
 
 
 # ── tag_metadata ─────────────────────────────────────────────────────────────
@@ -145,7 +230,34 @@ class TestTagMetadata:
 
     def test_llm_failure_returns_empty_shell(self, fake_llm):
         secs = extract_sections("# Overview\nSome text.")
-        llm = fake_llm("garbage")
+        llm = fake_llm("garbage", "still garbage")     # the reply and its one retry
         md = tag_metadata(secs, llm)
         assert md["project_name"] == ""
         assert md["stakeholders"] == []
+
+    def test_wrong_container_type_is_retried_once(self, fake_llm):
+        # stakeholders as a bare string used to pass straight through.
+        secs = extract_sections("# Overview\nProject Phoenix for the payments team.")
+        llm = fake_llm(
+            {"project_name": "Phoenix", "stakeholders": "VP Finance"},
+            {"project_name": "Phoenix", "stakeholders": ["VP Finance"]},
+        )
+        md = tag_metadata(secs, llm)
+        assert md["stakeholders"] == ["VP Finance"]
+        assert llm.call_count == 2
+
+    def test_null_fields_mean_absent_and_cost_no_retry(self, fake_llm):
+        secs = extract_sections("# Overview\nSome text.")
+        llm = fake_llm({"project_name": None, "stakeholders": None, "glossary": None})
+        md = tag_metadata(secs, llm)
+        assert md["project_name"] == ""
+        assert md["stakeholders"] == [] and md["glossary"] == []
+        assert llm.call_count == 1
+
+    def test_structured_items_are_kept(self, fake_llm):
+        secs = extract_sections("# Overview\nSome text.")
+        llm = fake_llm({"target_dates": [{"label": "go-live", "date": "Q3"}],
+                        "glossary": [{"term": "PSP", "definition": "payment provider"}]})
+        md = tag_metadata(secs, llm)
+        assert md["target_dates"] == [{"label": "go-live", "date": "Q3"}]
+        assert md["glossary"][0]["term"] == "PSP"

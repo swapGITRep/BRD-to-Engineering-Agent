@@ -6,6 +6,6 @@ checkpoints/
 logs/
 vectorstore/
 .pytest_cache/
-output/*
+**/output/*
 !output/.gitkeep
 .DS_Store

@@ -1,4 +1,4 @@
-# IK BRD Dev Agent
+# BRD Dev Agent
 
 > Autonomous multi-agent system that turns a **Business Requirements Document**
 > into a delivery package — engineering plan, schedule, solution architecture,
@@ -36,7 +36,8 @@
 ## Architecture
 
 Streamlit UI ──► LangGraph pipeline (SqliteSaver checkpoints), nine nodes
-sharing one state object.
+sharing one state object: eight LLM-backed agents plus a deterministic
+assembler.
 
 ```mermaid
 flowchart TD
@@ -72,6 +73,7 @@ schema contracts, the revision loop's scoring — is in
 
 | Agent | Role |
 | --- | --- |
+| BRD Ingest | Load the BRD, redact credentials/PII, split into sections, classify requirements and tag project metadata (`gpt-4.1-mini`) |
 | Orchestrator | Route BRD sections to specialists; manage state; revision routing |
 | Engineering Plan Generator | Phases, risks, milestones, team — with a Reflection self-review |
 | Schedule Estimator | Effort, timeline, resource matrix, critical path (aligned to the plan) |

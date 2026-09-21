@@ -25,9 +25,10 @@ explanation see [README.md](README.md); for the original implementation plan
 Architecture, PoC Plan, Technology Stack Options — assembled into one Markdown
 response document with a quality scorecard, typically produced in 8–10 minutes.
 
-**Core mechanism:** a fixed pipeline of eight LangGraph nodes (one ingestion
-agent, one orchestrator, five specialist generators, one critic, one assembler)
-sharing a single mutable state object. Every specialist call is grounded in a
+**Core mechanism:** a fixed pipeline of nine LangGraph nodes — eight
+LLM-backed agents (one ingestion agent, one orchestrator, five specialist
+generators, one critic) plus one deterministic assembler that makes no LLM
+call — sharing a single mutable state object. Every specialist call is grounded in a
 retrieval-augmented knowledge base, validated against a deterministic schema,
 and subject to a Critic-driven revision loop with a bounded budget.
 
@@ -87,8 +88,14 @@ part of the coordination problem:
 
 Every specialist agent returns JSON declared as prompt text (see each agent's
 `_SCHEMA`/`_SYSTEM` block) **and** enforced by a real pydantic model
-(`skills/schemas.py`). `invoke_json()` (`agents/specialist_base.py`) folds three
-independent checks into one retry budget:
+(`skills/schemas.py`); so do the Critic's scoring reply, the Engineering Plan's
+Reflection step, and BRD ingestion's requirement-classification and metadata
+replies. Seven of the eight agents are schema-validated — the Orchestrator is the
+exception, because it emits a free-text summary rather than structured output, so
+there is nothing to validate. The parse → validate → retry loop is one function,
+`skills/json_utils.py::invoke_validated_json()`, which the specialists reach via
+`invoke_json()` (`agents/specialist_base.py`) and ingestion calls directly. It
+folds three independent checks into one retry budget:
 
 1. **JSON syntax** — `skills/json_utils.py::extract_json()` (fence-stripping,
    brace-matching fallback).
@@ -224,8 +231,19 @@ system must...") is never misclassified as a section heading.
 
 Requirement classification and metadata tagging are both single LLM calls per
 section/document on `gpt-4.1-mini` (the one agent deliberately on a cheaper
-model — see `config/llm_config.yaml`), parsed via the shared
-`skills/json_utils.py::extract_json`.
+model — see `config/llm_config.yaml`). Both replies go through
+`invoke_validated_json()` against `RequirementsResponse` / `ProjectMetadata`
+(`skills/schemas.py`), so a structurally wrong reply — a bare JSON array,
+`requirements` as a string, an item with no `text`, `stakeholders` as a string —
+is retried once with the problem fed back rather than reaching `.get(...)`
+unchecked. A section that still fails after the retry is skipped and logged; a
+failed metadata call falls back to an empty shell. Enum *values* (`type`,
+`priority`, `nfr_category`) are deliberately not schema-enforced:
+`_coerce_requirement` normalizes them deterministically. An NFR category placed
+in the `type` field (seen live: `type="security"`) is mapped to
+`non_functional` with that category, since the intent is unambiguous; any other
+unrecognised value falls back to a safe default and logs a warning each time,
+instead of correcting silently.
 
 ### 6.3 RAG / Knowledge Augmentation (`skills/rag_retriever.py`)
 

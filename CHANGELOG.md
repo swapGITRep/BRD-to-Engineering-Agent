@@ -45,7 +45,7 @@ before the change;
 
 ## Guardrails & Validation
 
-### Only 5 of 7 agent outputs were schema-validated
+### Only 5 of 8 agent outputs were schema-validated
 - **Finding:** The Critic's own scoring JSON and the Reflection step's JSON
   both went through `extract_json` only, with no pydantic schema — so "all
   agents produce validated JSON" wasn't actually true.
@@ -55,6 +55,32 @@ before the change;
 - **Benefit:** Closed a specific, named gap instead of a generic "add more
   validation" pass — this alone moved Structured Output Contracts from
   60% to 80% in the rubric self-evaluation.
+
+### BRD ingestion's LLM replies had no schema check and could crash ingest
+- **Finding:** Ingest was the one LLM-backed agent besides the Orchestrator
+  with no schema validation: `classify_requirements` and `tag_metadata`
+  parsed the reply with `extract_json` alone and no retry. A reply that was
+  valid JSON but the wrong shape — a bare array, `requirements` as a
+  string — reached `.get(...)` unchecked and could raise out of ingest;
+  `stakeholders` as a string, or a `null` project name, passed straight
+  through to downstream code. (Earlier notes here called the Orchestrator the
+  only unvalidated agent; that was wrong — Ingest was a real gap too.)
+- **Change:** Added `RequirementsResponse` and `ProjectMetadata` pydantic
+  models and moved the parse → validate → retry-once-with-feedback loop out
+  of `invoke_json()` into one shared function,
+  `skills/json_utils.py::invoke_validated_json()`, used by both the
+  specialists and ingestion. `null` metadata fields now count as absent, and
+  ingestion logs a warning whenever it has to coerce an unrecognised
+  `type`/`priority` instead of doing so silently. That logging immediately
+  paid off: a live run on `gpt-4.1-mini` showed it returning
+  `type="security"` (an NFR category, not a type) for two requirements, which
+  had been silently relabelled `functional`. `_coerce_requirement` now maps an
+  NFR category found in the `type` field to `non_functional` with that
+  category — deterministic, no extra LLM call.
+- **Benefit:** 7 of 8 agents are now schema-validated (the Orchestrator emits
+  free text, so it has nothing to validate). Malformed ingest replies get one
+  corrective retry instead of a crash or silent bad data, and the retry loop
+  has a single definition instead of two copies.
 
 ### No enforcement that agents stay grounded in each other's real output
 - **Finding:** Only one handoff (PoC → Architecture) had a real cross-agent

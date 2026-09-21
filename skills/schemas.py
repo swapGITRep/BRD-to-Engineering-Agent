@@ -18,9 +18,9 @@ throughout so an LLM enriching its answer with an extra field never fails.
 """
 from __future__ import annotations
 
-from typing import List
+from typing import Any, List, Optional
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class _Lenient(BaseModel):
@@ -252,6 +252,57 @@ class CriticDimensions(_Lenient):
 class ReflectionReview(_Lenient):
     issues: List[str] = Field(default_factory=list)
     verdict: str = "ok"
+
+
+# ── BRD ingestion (skills/brd_parser.py) ──────────────────────────────────────
+# What these check is *structure*, not prompt-adherence: the reply is an object
+# whose `requirements` is a list of objects each carrying a string `text`, and
+# whose metadata fields are the container types downstream code indexes into.
+# Before this, a reply shaped wrong (a top-level JSON array, `requirements` as
+# a string, a non-object item) reached `.get(...)` unchecked and could crash
+# ingest outright. Enum values (`type`, `priority`, `nfr_category`) are
+# deliberately left as plain strings: brd_parser._coerce_requirement
+# normalizes those deterministically and logs when it had to correct one.
+class RequirementItem(_Lenient):
+    text: str
+    type: str = "functional"
+    nfr_category: Optional[str] = None
+    priority: str = "should"
+    ambiguity_flag: bool = False
+
+
+class RequirementsResponse(_Lenient):
+    requirements: List[RequirementItem] = Field(default_factory=list)
+
+
+class TargetDate(_Lenient):
+    label: str = ""
+    date: str = ""
+
+
+class GlossaryEntry(_Lenient):
+    term: str = ""
+    definition: str = ""
+
+
+class ProjectMetadata(_Lenient):
+    project_name: str = ""
+    stakeholders: List[str] = Field(default_factory=list)
+    target_dates: List[TargetDate] = Field(default_factory=list)
+    business_goals: List[str] = Field(default_factory=list)
+    success_metrics: List[str] = Field(default_factory=list)
+    glossary: List[GlossaryEntry] = Field(default_factory=list)
+    referenced_systems: List[str] = Field(default_factory=list)
+
+    @model_validator(mode="before")
+    @classmethod
+    def _null_means_absent(cls, data: Any) -> Any:
+        # The prompt asks for an empty list/string when a field is absent;
+        # models often emit null instead. That's absent, not malformed —
+        # let the defaults apply.
+        if isinstance(data, dict):
+            return {k: v for k, v in data.items() if v is not None}
+        return data
 
 
 # agent_key (as used in state/output/deliverables) -> its schema. Lets tooling

@@ -10,7 +10,7 @@ __pycache__/
 logs/
 checkpoints/
 vectorstore/
-output/
+**/output/
 !output/.gitkeep
 .pytest_cache/
 tests/
