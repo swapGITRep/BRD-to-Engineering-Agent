@@ -98,11 +98,15 @@ Each update creates a new revision; roll back with
 
 The Bicep writes a Key Vault secret **only when you pass its parameter**.
 
-| Situation | `openAiApiKey` / `langchainApiKey` |
+| Situation | `openAiApiKey` / `langchainApiKey` / `jiraApiToken` |
 |---|---|
-| First deployment (new / empty vault) | **required** — pass real values (use `langchainApiKey='not-set'` to run without LangSmith) |
+| First deployment (new / empty vault) | `openAiApiKey` **required**; `langchainApiKey` and `jiraApiToken` also need *some* value the first time each param is introduced (use `'not-set'` to run without that feature) — the Container App's secret reference must resolve to a real Key Vault entry, even a placeholder one |
 | Any later `az deployment group create` (infra change, add a param, etc.) | **omit them** — the values already in the vault are left untouched |
 | Rotate / fix a key | don't redeploy — see below |
+
+`jiraSiteUrl` / `jiraEmail` / `jiraProject` are plain (non-secret) params —
+pass them whenever they change; omitting them redeploys with their bicep
+defaults, not with whatever the running app currently has.
 
 ### Rotate or fix a key (no redeploy)
 
@@ -157,5 +161,9 @@ azd up
   `-p minReplicas=0` (cold starts, session loss) to cut cost to near zero.
 - **LangSmith**: omit `langchainApiKey` to run without tracing (the `not-set`
   placeholder is treated as disabled).
+- **Jira ticket check**: optional — the PoC Planner's `check_related_jira_tickets`
+  tool degrades to "not configured, use judgment" rather than failing the run
+  if `jiraApiToken`/`jiraSiteUrl`/`jiraEmail` aren't set. See `.env.example`
+  for the local-dev equivalent.
 - **Access control**: add Azure AD "Easy Auth" — `az containerapp auth`.
 - **Custom domain**: `az containerapp hostname add` + free managed certificate.
