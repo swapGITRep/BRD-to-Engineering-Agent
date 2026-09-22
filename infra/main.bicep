@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// IK BRD Dev Agent — Tier 1 infrastructure (single always-on Container App).
+// BRD Dev Agent — Tier 1 infrastructure (single always-on Container App).
 //
 // Provisions: Log Analytics + Application Insights, Azure Container Registry
 // (Basic), a user-assigned managed identity, a Storage Account with two
