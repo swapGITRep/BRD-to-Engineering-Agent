@@ -49,6 +49,19 @@ param openAiApiKey string = ''
 @secure()
 param langchainApiKey string = ''
 
+@description('Jira API token for the PoC Planner ticket-check tool. Optional — on the first deployment that introduces this param, pass a value (use "not-set" to run without it); leave blank on redeploys to keep the existing value.')
+@secure()
+param jiraApiToken string = ''
+
+@description('Jira site URL, e.g. https://yourcompany.atlassian.net. Not a secret.')
+param jiraSiteUrl string = 'https://swapi4u.atlassian.net'
+
+@description('Email address the Jira API token belongs to. Not a secret, but not public either — kept as a plain param rather than hardcoded.')
+param jiraEmail string = 'swapi4u@gmail.com'
+
+@description('Jira project name or key the ticket-check tool searches within. Blank = unscoped search.')
+param jiraProject string = 'Agent Development Team'
+
 @description('Key Vault name (globally unique, 3-24 chars). Blank = hashed default name.')
 @maxLength(24)
 param keyVaultName string = ''
@@ -217,6 +230,12 @@ resource secretLangchain 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = if (!e
   properties: { value: langchainApiKey }
 }
 
+resource secretJira 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = if (!empty(jiraApiToken)) {
+  parent: kv
+  name: 'JIRA-API-TOKEN'
+  properties: { value: jiraApiToken }
+}
+
 resource kvSecretsUser 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
   name: guid(kv.id, uami.id, kvSecretsUserRoleId)
   scope: kv
@@ -309,6 +328,11 @@ resource app 'Microsoft.App/containerApps@2024-03-01' = {
           keyVaultUrl: '${kv.properties.vaultUri}secrets/LANGCHAIN-API-KEY'
           identity: uami.id
         }
+        {
+          name: 'jira-api-token'
+          keyVaultUrl: '${kv.properties.vaultUri}secrets/JIRA-API-TOKEN'
+          identity: uami.id
+        }
       ]
     }
     template: {
@@ -323,6 +347,10 @@ resource app 'Microsoft.App/containerApps@2024-03-01' = {
           env: [
             { name: 'OPENAI_API_KEY', secretRef: 'openai-api-key' }
             { name: 'LANGCHAIN_API_KEY', secretRef: 'langchain-api-key' }
+            { name: 'JIRA_API_TOKEN', secretRef: 'jira-api-token' }
+            { name: 'JIRA_SITE_URL', value: jiraSiteUrl }
+            { name: 'JIRA_EMAIL', value: jiraEmail }
+            { name: 'JIRA_PROJECT', value: jiraProject }
             { name: 'OPENAI_MODEL', value: openAiModel }
             { name: 'OPENAI_EMBED_MODEL', value: openAiEmbedModel }
             { name: 'LANGCHAIN_TRACING_V2', value: langchainTracing }

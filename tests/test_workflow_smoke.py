@@ -17,6 +17,7 @@ import agents.brd_ingest_agent as ingest_mod
 import agents.critic_agent as critic_mod
 import agents.engineering_plan_agent as plan_mod
 import agents.orchestrator_agent as orch_mod
+import agents.poc_planner_agent as poc_mod
 import agents.specialist_base as base
 import agents.tech_stack_agent as tech_mod
 import orchestration.langgraph_workflow as wf
@@ -96,11 +97,16 @@ def _fake_get_llm(agent_name, _llm_config=None):
 
 @pytest.fixture(autouse=True)
 def _stub_everything(monkeypatch):
-    # tech_mod needs its own get_llm patched too: it calls get_llm() directly
-    # (not just through invoke_json/base) for the tech-radar tool-calling
-    # step. ConstantLLM has no bind_tools(), so that step cleanly no-ops here
-    # — real tool-calling has its own dedicated test in test_specialist_agents.py.
-    for mod in (base, plan_mod, critic_mod, orch_mod, ingest_mod, tech_mod):
+    # tech_mod and poc_mod each call get_llm() directly too (not just through
+    # invoke_json/base) for their own tool-calling steps (tech radar, Jira).
+    # ConstantLLM has no bind_tools(), so both cleanly no-op here — real
+    # tool-calling has its own dedicated tests in test_specialist_agents.py.
+    # An unpatched module here doesn't fail fast: get_llm() falls through to
+    # a REAL ChatOpenAI + a real network call if a genuine OPENAI_API_KEY is
+    # present (e.g. from a local .env) — it looks like a slow test, not an
+    # error, so it's easy to miss. Live-caught: this exact thing happened
+    # when the Jira tool was added and poc_mod was forgotten here.
+    for mod in (base, plan_mod, critic_mod, orch_mod, ingest_mod, tech_mod, poc_mod):
         monkeypatch.setattr(mod, "get_llm", _fake_get_llm, raising=False)
     monkeypatch.setattr(base, "get_retriever", lambda *a, **k: FakeRetriever())
     monkeypatch.setattr(critic_mod, "get_retriever", lambda *a, **k: FakeRetriever())
@@ -176,7 +182,7 @@ def test_revision_loop_terminates(framework_config, monkeypatch):
             return ConstantLLM(json.dumps(bad))
         return _fake_get_llm(agent_name, _cfg)
 
-    for mod in (base, plan_mod, critic_mod, orch_mod, ingest_mod, tech_mod):
+    for mod in (base, plan_mod, critic_mod, orch_mod, ingest_mod, tech_mod, poc_mod):
         monkeypatch.setattr(mod, "get_llm", _always_revise, raising=False)
 
     final = _run(framework_config)

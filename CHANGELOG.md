@@ -106,6 +106,37 @@ before the change;
 
 ---
 
+## External Tool Integrations
+
+### Only one deterministic tool existed, and it was purely local
+- **Finding:** `check_tech_radar_status` proved the tool-calling mechanism
+  worked, but it only ever read a local file — the app's own docs named "no
+  external API/ticketing integration" as a known limitation, and there was
+  no real example of a tool that leaves the process.
+- **Change:** Added `check_related_jira_tickets`, a second tool on the same
+  `bind_tools` mechanism, wired into the PoC Planner. `skills/jira_tickets.py`
+  runs a real JQL search against a live Jira Cloud project (auth via email +
+  API token, config via env vars, `JIRA_API_TOKEN` through Key Vault the same
+  way `OPENAI_API_KEY` already is) before the PoC is drafted, so it doesn't
+  propose work that's already tracked. A missing/failed Jira call degrades to
+  "not configured" / "no related tickets found" rather than failing the run —
+  the same best-effort posture `grounding_for()` already has.
+- **Benefit:** Proves the tool-calling mechanism generalizes to a real
+  external service, not just a local file — closes the exact gap the docs
+  named, without touching the local tech-radar tool's behavior at all.
+- **Live-caught regression, fixed in the same change:** adding a second
+  direct `get_llm()` call site (for the tool-gathering step, same pattern
+  `tech_stack_agent.py` already used) silently made `test_workflow_smoke.py`
+  hit the *real* OpenAI API — its `_stub_everything` fixture patched
+  `get_llm` on a fixed list of modules that predated this agent needing its
+  own entry, and an unpatched module here doesn't fail fast, it just looks
+  like a slow test. Caught by a 1.2s → 23.7s full-suite timing jump, not a
+  test failure, then fixed back to 1.17s by adding the new module to both
+  patch lists and leaving a comment naming the exact failure mode for the
+  next tool that does this.
+
+---
+
 ## Evaluation & Metrics
 
 ### No structural regression check across a labeled set

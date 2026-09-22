@@ -249,6 +249,12 @@ class TestPoc:
                          "success_criteria": [{"metric": "runtime", "threshold": "<30m", "measurement_method": "run"}],
                          "exit_decision_matrix": []})
         monkeypatch.setattr(base, "get_llm", lambda *a, **k: fake)
+        # poc_mod also calls get_llm() directly for the Jira tool-calling step
+        # (not just through invoke_json/base) — FakeLLM has no bind_tools(),
+        # so this cleanly no-ops and the test stays deterministic either way;
+        # the patch just keeps it from reaching a real client if .env got
+        # loaded earlier in the same test session.
+        monkeypatch.setattr(poc_mod, "get_llm", lambda *a, **k: fake)
         out = poc_mod.poc_planner_node(state)
         assert out["current_stage"] == Stage.TECH_STACK
         assert "MatchEngine" in str(fake.calls[0])
@@ -267,6 +273,7 @@ class TestPoc:
                    "success_criteria": [], "exit_decision_matrix": []}
         fake = fake_llm(wrong_component, correct)
         monkeypatch.setattr(base, "get_llm", lambda *a, **k: fake)
+        monkeypatch.setattr(poc_mod, "get_llm", lambda *a, **k: fake)
 
         out = poc_mod.poc_planner_node(state)
 
@@ -274,6 +281,60 @@ class TestPoc:
         assert out["poc_plan"]["status"] == "ok"
         assert out["poc_plan"]["content"]["modules"][0]["maps_to_component"] == "MatchEngine"
         assert "GhostService" in str(fake.calls[1])             # the mismatch was fed back
+
+    def test_jira_tool_is_called_and_findings_reach_the_prompt(self, state, monkeypatch):
+        # Real LLM-native tool-calling: the model requests
+        # check_related_jira_tickets, and its finding must reach the final
+        # prompt before the PoC is drafted. search_related_tickets itself is
+        # stubbed here (unlike tech_stack's radar tool, this one is a real
+        # network call, not a local file lookup, so it can't be exercised
+        # "for real" in a unit test) — this test is about the tool-calling
+        # plumbing, not the Jira HTTP client (see tests/test_jira_tickets.py).
+        monkeypatch.setattr(poc_mod, "grounding_for", lambda *a, **k: GROUNDING)
+        state["architecture"] = _artifact("architecture",
+                                          {"components": [{"name": "API"}], "key_decisions": []})
+        monkeypatch.setattr(poc_mod, "search_related_tickets", lambda topic, max_results=5: [
+            {"key": "ADT-7", "summary": "Prototype the matching engine", "status": "In Progress"},
+        ])
+
+        tool_call = [{"name": "check_related_jira_tickets", "args": {"topic": "matching engine PoC"}, "id": "call_1"}]
+        final = {"poc_goal": "g", "modules": [{"name": "m", "maps_to_component": "API"}],
+                 "success_criteria": [], "exit_decision_matrix": []}
+        fake = _ToolCallingFakeLLM(
+            {"_tool_calls": tool_call},   # 1: model asks to check the topic
+            {"_tool_calls": None},        # 2: model is done gathering facts
+            final,                        # 3: invoke_json's final JSON answer
+        )
+        monkeypatch.setattr(poc_mod, "get_llm", lambda *a, **k: fake)
+        monkeypatch.setattr(base, "get_llm", lambda *a, **k: fake)
+
+        out = poc_mod.poc_planner_node(state)
+
+        assert out["poc_plan"]["status"] == "ok"
+        assert "ADT-7" in str(fake.calls[-1])                   # the finding reached the final prompt
+        assert "In Progress" in str(fake.calls[-1])
+
+    def test_jira_not_configured_does_not_block_the_plan(self, state, monkeypatch):
+        # No JIRA_* env vars set in the test environment — search_related_tickets
+        # raises JiraNotConfigured for real (not stubbed), and the tool must
+        # report that gracefully rather than raising out of the node.
+        monkeypatch.setattr(poc_mod, "grounding_for", lambda *a, **k: GROUNDING)
+        state["architecture"] = _artifact("architecture",
+                                          {"components": [{"name": "API"}], "key_decisions": []})
+        for var in ("JIRA_SITE_URL", "JIRA_EMAIL", "JIRA_API_TOKEN"):
+            monkeypatch.delenv(var, raising=False)
+
+        tool_call = [{"name": "check_related_jira_tickets", "args": {"topic": "x"}, "id": "call_1"}]
+        final = {"poc_goal": "g", "modules": [{"name": "m", "maps_to_component": "API"}],
+                 "success_criteria": [], "exit_decision_matrix": []}
+        fake = _ToolCallingFakeLLM({"_tool_calls": tool_call}, {"_tool_calls": None}, final)
+        monkeypatch.setattr(poc_mod, "get_llm", lambda *a, **k: fake)
+        monkeypatch.setattr(base, "get_llm", lambda *a, **k: fake)
+
+        out = poc_mod.poc_planner_node(state)
+
+        assert out["poc_plan"]["status"] == "ok"
+        assert "isn't configured" in str(fake.calls[-1])
 
 
 # ── Tech Stack Recommender ───────────────────────────────────────────────────

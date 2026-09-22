@@ -97,6 +97,12 @@ edge-case design.
   detail that makes the metric trustworthy rather than just present.)
 - Show two cross-agent consistency checks *live* if time allows: PoC ↔
   Architecture component alignment, Schedule ↔ Plan phase alignment.
+- If time allows, also point at real LLM-native tool-calling in a LangSmith
+  trace: the Tech Stack Recommender calling `check_tech_radar_status`
+  against the actual tech radar file, and the PoC Planner calling
+  `check_related_jira_tickets` against a real Jira project before
+  finalizing scope — both are real tool calls the model chooses to make,
+  not just prompted context.
 
 ---
 
