@@ -368,19 +368,32 @@ resource app 'Microsoft.App/containerApps@2024-03-01' = {
             { volumeName: 'vectorstore', mountPath: '/app/vectorstore' }
             { volumeName: 'output', mountPath: '/app/output' }
           ]
+          // Liveness previously allowed only initialDelaySeconds(30) +
+          // periodSeconds(30) x failureThreshold(6) = 210s of runway before
+          // killing the container -- live-caught crash-looping a cold
+          // replica that hadn't finished importing LangChain/LangGraph and
+          // mounting the Azure Files shares within that window: Liveness
+          // killed it, the fresh replica hit the same slow boot, and it
+          // repeated every ~210s, never once reaching Readiness. Raised to
+          // both platform-enforced caps -- initialDelaySeconds max 60,
+          // failureThreshold max 10 (confirmed live: 90 was rejected with
+          // ContainerAppProbeInitialDelaySecondsOutOfRange) -- giving ~360s
+          // of runway, the most headroom these caps allow, so a single boot
+          // attempt gets a real chance to finish before anything restarts it.
           probes: [
             {
               type: 'Liveness'
               httpGet: { path: '/_stcore/health', port: 8501 }
-              initialDelaySeconds: 30
+              initialDelaySeconds: 60
               periodSeconds: 30
-              failureThreshold: 6
+              failureThreshold: 10
             }
             {
               type: 'Readiness'
               httpGet: { path: '/_stcore/health', port: 8501 }
-              initialDelaySeconds: 10
-              periodSeconds: 15
+              initialDelaySeconds: 60
+              periodSeconds: 20
+              failureThreshold: 10
             }
           ]
         }

@@ -44,9 +44,15 @@ The existing resources must be in **this resource group** and the same region.
 When an environment is reused, the template does **not** create Log Analytics or
 App Insights — pass an existing connection string if you want telemetry.
 
+On a **redeploy of an app that already has a real image running**, also pass
+`containerImage` — see "Always pass `containerImage` on a redeploy" below for
+why omitting it is a live-caught way to accidentally revert to a placeholder
+image.
+
 ```bash
 az deployment group create -g $RG -n brd -f infra/main.bicep \
   -p namePrefix=$PREFIX \
+     containerImage='<acrLoginServer>/brd-agent:<the tag currently running>' \
      existingEnvironmentName='cae-saathiapp-dev' \
      existingAcrName='<your-acr-name>' \
      appInsightsConnectionString='InstrumentationKey=...;IngestionEndpoint=...' \
@@ -93,6 +99,63 @@ az containerapp update -g $RG -n $APP --image "$LOGIN/brd-agent:v2"
 
 Each update creates a new revision; roll back with
 `az containerapp revision list -g $RG -n $APP` then `... revision activate`.
+
+## Always pass `containerImage` on a redeploy of an existing app
+
+`containerImage`'s default (`mcr.microsoft.com/k8se/quickstart:latest`) exists
+only for the very first deployment, before any real image has been built —
+its own `@description` says so. Live-caught: running `az deployment group
+create` against an **existing** deployment without passing `containerImage`
+silently reverts the running app to that placeholder image, and sets
+`APP_BUILD` to `latest` (`imageTag = last(split(containerImage, ':'))`
+resolves to `latest` from the default). Always pass the image that's actually
+running:
+
+```bash
+IMAGE=$(az containerapp show -g $RG -n $APP --query "properties.template.containers[0].image" -o tsv)
+az deployment group create -g $RG -n brd -f infra/main.bicep \
+  -p containerImage="$IMAGE" \
+     existingEnvironmentName='cae-saathiapp-dev' \
+     existingAcrName='<your-acr-name>' \
+     keyVaultName='<your-key-vault-name>'
+```
+
+## Recovering from a revision that fails to activate
+
+Live-caught: a full `az deployment group create` against this app produced a
+revision that never passed its Liveness/Readiness probes and was eventually
+marked `ActivationFailed` (`"Deployment Progress Deadline Exceeded. 0/1
+replicas ready."`) — twice, even after loosening the probe timing. A plain
+`az containerapp update --image <the currently running image>` (no bicep, no
+template changes) against the *same* now-updated app resource booted
+healthy in under a minute. Best-supported explanation: the full template
+reconciliation re-touches resources (role assignments, Key Vault access)
+even when their values are unchanged, and a replica created immediately
+after can get caught in a brief propagation window resolving its
+secrets/mounts — a revision created moments later, from the already-settled
+template, doesn't hit it.
+
+If `az deployment group create` reports success but the resulting revision
+shows `ActivationFailed` (`az containerapp revision show -g $RG -n $APP
+--revision <name> --query properties.runningStateDetails`):
+
+```bash
+IMAGE=$(az containerapp show -g $RG -n $APP --query "properties.template.containers[0].image" -o tsv)
+az containerapp update -g $RG -n $APP --image "$IMAGE" --set-env-vars "APP_BUILD=$(echo $IMAGE | cut -d: -f2)"
+```
+
+Don't skip `--set-env-vars APP_BUILD=...` here — `az containerapp update
+--image` only ever updates the image, never other env vars, so `APP_BUILD`
+stays whatever the failed bicep deployment last set it to (`latest`, per the
+gotcha above) unless set explicitly in the same command. This is the same
+one-line fix `.github/workflows/deploy.yml`'s `build-and-deploy` job already
+applies on every CI deploy — see `TECHNICAL_DESIGN.md` §11 for the earlier
+incident that introduced it there.
+
+Throughout all of this the app stays up: Container Apps keeps serving
+traffic from the last healthy revision automatically while a new one fails
+to activate, so there is no user-facing downtime to race against while
+diagnosing.
 
 ## Secrets: provide them once, not on every deploy
 
