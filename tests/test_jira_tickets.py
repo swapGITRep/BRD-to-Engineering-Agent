@@ -59,25 +59,45 @@ class TestBuildJql:
 
     def test_no_project_is_unscoped(self):
         jql = jt._build_jql("oauth migration", "")
-        assert jql == 'text ~ "oauth migration" ORDER BY created DESC'
+        assert jql == '(text ~ "oauth" OR text ~ "migration") ORDER BY created DESC'
 
     def test_project_with_spaces_is_quoted(self):
         jql = jt._build_jql("oauth migration", "Agent Development Team")
         assert jql == ('project = "Agent Development Team" AND '
-                        'text ~ "oauth migration" ORDER BY created DESC')
+                        '(text ~ "oauth" OR text ~ "migration") ORDER BY created DESC')
+
+    def test_keywords_are_ORed_not_ANDed(self):
+        # Live-caught: a topic phrase like "fuzzy matching and exception
+        # queue for reconciliation" returned zero results against a real
+        # ticket that plainly covered the same work, because AND-of-words
+        # requires every word to hit and that ticket never says "exception"
+        # or "queue". OR-of-keywords means one strong hit is enough.
+        jql = jt._build_jql("fuzzy matching and exception queue for reconciliation", "")
+        assert jql == ('(text ~ "fuzzy" OR text ~ "matching" OR text ~ "exception" '
+                        'OR text ~ "queue" OR text ~ "reconciliation") ORDER BY created DESC')
+
+    def test_stopwords_and_short_words_are_dropped(self):
+        jql = jt._build_jql("a spike on the API for us", "")
+        assert jql == '(text ~ "spike" OR text ~ "API") ORDER BY created DESC'
 
     def test_double_quotes_in_topic_are_neutralized(self):
-        # A raw " would break the JQL string literal it's embedded in.
+        # The regex-based word extraction naturally strips punctuation
+        # (including a raw ") rather than carrying it into a keyword value,
+        # which would otherwise break the JQL string literal.
         jql = jt._build_jql('the "real-time" service', "")
-        assert jql == 'text ~ "the \'real-time\' service" ORDER BY created DESC'
+        assert jql == ('(text ~ "real" OR text ~ "time" OR text ~ "service")'
+                        ' ORDER BY created DESC')
 
     def test_empty_topic_matches_everything(self):
         assert jt._build_jql("", "") == 'text ~ "*" ORDER BY created DESC'
 
+    def test_only_stopwords_matches_everything(self):
+        assert jt._build_jql("a the of for", "") == 'text ~ "*" ORDER BY created DESC'
+
     def test_topic_is_truncated(self):
-        long_topic = "x" * 500
+        long_topic = " ".join(["word" + str(i) for i in range(100)])
         jql = jt._build_jql(long_topic, "")
-        assert len(jql) < 200
+        assert jql.count(" OR ") == jt._MAX_KEYWORDS - 1
 
 
 # ── search_related_tickets ────────────────────────────────────────────────────
@@ -104,7 +124,7 @@ class TestSearchRelatedTickets:
             {"key": "ADT-7", "summary": "Prototype matching engine", "status": "In Progress"},
             {"key": "ADT-9", "summary": "Spike on OAuth", "status": "Done"},
         ]
-        assert captured["url"] == "https://swapi4u.atlassian.net/rest/api/3/search"
+        assert captured["url"] == "https://swapi4u.atlassian.net/rest/api/3/search/jql"
         assert captured["auth"] == ("swapi4u@gmail.com", "fake-token")
         assert "Agent Development Team" in captured["params"]["jql"]
 
