@@ -41,6 +41,12 @@ Produce a defensible schedule from the engineering plan below. Do NOT invent new
 phases; use the plan's phase names/order. If you must deviate, set
 "alignment_ok": false and explain in "alignment_notes".
 
+Two specific invented phases to never use, however tempting: a buffer/slack
+phase named something like "Contingency" — that belongs in "contingency_pct",
+not a fake phase row; and a catch-all phase named "All" in resource_matrix to
+mean "this role works across every phase" — instead, add one resource_matrix
+row per real phase that role is actually allocated to.
+
 KNOWLEDGE BASE (estimation heuristics, comparable deliveries):
 {grounding}
 
