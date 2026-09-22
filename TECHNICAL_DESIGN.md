@@ -155,7 +155,7 @@ early — there is nothing downstream to build on without parsed requirements.
 | Embeddings | OpenAI `text-embedding-3-large` | Via `skills/llm_factory.py::get_embeddings`. |
 | RAG store | Custom in-memory JSON index (`vectorstore/index.json`) | Cosine similarity via numpy; Chroma is a swappable, currently-inactive alternate backend (`RAG_BACKEND=chroma`). |
 | Structured output | `pydantic` v2 models (`skills/schemas.py`) | Lenient (`extra="allow"`) beyond identifying fields. |
-| Tool-calling | LangChain `bind_tools` | One real tool today: `check_tech_radar_status` (`agents/tech_stack_agent.py`), backed by a real parser over `knowledge_base/corpus/org_standards/tech_radar.md`. |
+| Tool-calling | LangChain `bind_tools` | Two real tools today: `check_tech_radar_status` (`agents/tech_stack_agent.py`, a real parser over `knowledge_base/corpus/org_standards/tech_radar.md`) and `check_related_jira_tickets` (`agents/poc_planner_agent.py`, a real JQL search against Jira Cloud — `skills/jira_tickets.py`). |
 | UI | Streamlit, `st.navigation` | Background-thread job runner (§6.1) decouples pipeline execution from the Streamlit script lifecycle. |
 | Tracing | LangSmith (optional) | Auto-detected from `.env`; see `_configure_langsmith()`. |
 | Deployment | Azure Container Apps | Single always-on instance; see §9. |
@@ -622,5 +622,6 @@ if pursued, not a drop-in follow-up like gate 1 was.
   answer.
 - **Schema-conformance and eval-regression gates are documented but not
   CI-enforced** (lint + unit tests already are) — see §11.4.
-- **Only one deterministic tool exists** (`check_tech_radar_status`) — no
-  external API/ticketing integration.
+- **Jira integration only covers search, not writes** — `check_related_jira_tickets`
+  reads existing tickets; the PoC Planner can't create or update one. No
+  other external API is integrated beyond Jira and the tech radar.
