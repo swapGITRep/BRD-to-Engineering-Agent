@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import sys
 import tempfile
 from pathlib import Path
@@ -364,6 +365,39 @@ def _derive_brd_id(name: str) -> str:
     return slug or "BRD"
 
 
+_TITLE_LINE_RE = re.compile(r"^#{1,6}\s*(.+)$")
+# This project's house style opens every BRD with the same boilerplate title
+# ("# Business Requirements Document — <the actual title>") -- strip it so
+# the derived id reflects the distinctive part, not the same prefix on every
+# pasted BRD.
+_BOILERPLATE_TITLE_RE = re.compile(r"^business requirements document\s*[—\-:]*\s*", re.IGNORECASE)
+
+
+def _derive_brd_id_from_text(text: str) -> str:
+    """A readable brd_id from pasted text's first heading/line, for the one
+    entry path _derive_brd_id() can't cover -- pasted text has no filename to
+    slugify, so brd_id previously stayed empty and fell through to
+    run_pipeline()'s random `BRD-<hex>` fallback every time. Deliberately not
+    routed through _derive_brd_id() itself: that uses Path(name).stem, which
+    would silently truncate a title containing "." (e.g. "v2.0") by treating
+    everything after the last dot as a fake file extension.
+
+    Returns "" (not "BRD") when no usable title line exists, so callers can
+    tell "nothing to derive from" apart from "derived, happens to be short" —
+    and the empty string preserves the existing random-fallback behavior for
+    text with no heading, rather than colliding every such run onto "BRD"."""
+    for line in (text or "").splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        m = _TITLE_LINE_RE.match(line)
+        title = m.group(1).strip() if m else line
+        title = _BOILERPLATE_TITLE_RE.sub("", title).strip()
+        slug = re.sub(r"[^A-Za-z0-9]+", "_", title).strip("_").upper()[:48]
+        return slug
+    return ""
+
+
 MAX_UPLOAD_BYTES = 15 * 1024 * 1024   # 15 MB — generous for a text-based BRD
 MIN_BRD_CHARS = 200                    # below this it isn't a real requirements document
 
@@ -434,6 +468,7 @@ def run_analysis(*, uploaded_file=None, pasted_text: str = "", sample_name: str 
                      f"real BRD (need at least {MIN_BRD_CHARS}).")
             return False
         brd_text = pasted_text
+        brd_id = _derive_brd_id_from_text(pasted_text)
 
     if not brd_path and not brd_text:
         st.error("Provide a BRD: upload a file, pick a sample, or paste text.")
