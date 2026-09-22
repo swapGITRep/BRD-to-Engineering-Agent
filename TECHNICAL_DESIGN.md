@@ -316,6 +316,37 @@ vector index and `output/` also use — SQLite's locking is unreliable over SMB
 `infra/main.bicep` deliberately does not mount `checkpoints` on the shared
 Azure Files volume (see §9).
 
+### 7.1 Every file one "Run analysis" writes
+
+Verified against the actual code (each path's writer, not from memory), in
+the order a run actually writes them:
+
+| # | Path | Written by | Contains |
+|---|---|---|---|
+| 1 | `output/jobs/<job_id>.json` | `streamlit_app/jobs.py` | Job status (running/complete/failed), written *before* the pipeline starts and updated again when it finishes — keyed by a random job id, not `brd_id` |
+| 2 | `output/parsed/<brd_id>_parsed.json` | `brd_ingest_node` | Sections, classified requirements, metadata, confidentiality notes — the first thing any run writes |
+| 3–7 | `output/deliverables/{engineering_plan,schedule,architecture,poc_plan,tech_stack}.json` | each specialist's `finish()` | That agent's structured output — **one file per agent, not per BRD** (see caveat below) |
+| 8 | `output/reports/<brd_id>_response.md` | `assemble_node` | The final assembled Markdown report — what the UI/Export page shows |
+| 9 | `output/reports/<brd_id>_deliverables.json` + `output/reports/<brd_id>_manifest.json` | `assemble_node`'s `_save()` | All five deliverables bundled by agent name, plus the run's index record (critic scores, quality badges, revision improvement, confidentiality notes, errors) |
+
+**Gotcha:** #3–7 are named only by agent (`schedule.json`, not
+`<brd_id>_schedule.json`), so every run overwrites the previous run's
+snapshot of each agent — a "last run's per-agent output" debug artifact, not
+a per-BRD archive. The only per-BRD, non-overwritten record of a run's
+deliverables is #9.
+
+**Not on `output/`, and not persisted on Azure at all:**
+- `logs/brd_run_<timestamp>.log` — `run_pipeline()`'s own log of that run,
+  on local container disk like the checkpoint DB, lost on the next
+  restart/redeploy for the same SMB-locking reason as §7's fix above.
+- The checkpoint DB itself (already covered above) gains new rows every run,
+  rather than a new file per run.
+
+**Not written at all, only read:** the RAG vectorstore (`vectorstore/
+index.json`, `vectorstore/manifest.json`) is built once at first boot (or
+when the corpus changes) — no run analysis writes to it, only §6.3's
+retrieval reads from it.
+
 ## 8. End-to-End Technical Flow: Click to Completion
 
 This traces every method actually invoked, in order, from the user clicking
