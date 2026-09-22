@@ -16,15 +16,21 @@ from __future__ import annotations
 import logging
 from typing import Any, Dict
 
+from langchain_core.messages import HumanMessage, SystemMessage, ToolMessage
+from langchain_core.tools import tool
+
 from orchestration.state import BRDState, Stage
 from agents.specialist_base import (
     fail,
     finish,
     grounding_for,
     invoke_json,
+    llm_config_of,
     revision_block,
     revision_issues,
 )
+from skills.jira_tickets import JiraNotConfigured, search_related_tickets
+from skills.llm_factory import get_llm
 from skills.rag_retriever import load_persona
 from skills.schemas import PocPlan
 
@@ -32,6 +38,58 @@ logger = logging.getLogger(__name__)
 
 AGENT_KEY = "poc_plan"
 LLM_NAME = "poc_planner"
+
+
+@tool
+def check_related_jira_tickets(topic: str) -> str:
+    """Search this org's Jira project for tickets already related to a
+    proposed PoC topic (e.g. 'real-time notification service', 'OAuth
+    migration'). Call this once per major PoC angle before finalizing
+    poc_goal/modules, so the plan doesn't propose work that's already
+    tracked. Returns matching ticket keys, summaries and status, or a
+    message saying none were found / Jira isn't configured for this
+    deployment."""
+    try:
+        tickets = search_related_tickets(topic)
+    except JiraNotConfigured:
+        return "Jira isn't configured for this deployment — no ticket check available; use judgment."
+    if not tickets:
+        return f"No related tickets found in Jira for '{topic}'."
+    return "\n".join(f"{t['key']} [{t['status']}]: {t['summary']}" for t in tickets)
+
+
+def _gather_jira_findings(llm: Any, user_prompt: str) -> str:
+    """Real LLM-native tool-calling: let the model check Jira for tickets
+    already covering a proposed PoC topic before it drafts the plan.
+    Feature-detected via bind_tools — test doubles (FakeLLM) don't define
+    it, so this cleanly no-ops there, the same as tech_stack's radar tool."""
+    bind_tools = getattr(llm, "bind_tools", None)
+    if bind_tools is None:
+        return ""
+
+    llm_with_tools = bind_tools([check_related_jira_tickets])
+    messages: list = [
+        SystemMessage(content=(
+            "Before drafting the PoC, check whether related work is already "
+            "tracked. Call check_related_jira_tickets for the main topic and "
+            "any distinct alternative framing of it — 1-3 calls is enough. "
+            "Do not draft anything here; only call the tool."
+        )),
+        HumanMessage(content=user_prompt),
+    ]
+    findings: list[str] = []
+    resp = llm_with_tools.invoke(messages)
+    hops = 0
+    while getattr(resp, "tool_calls", None) and hops < 4:
+        messages.append(resp)
+        for call in resp.tool_calls:
+            result = check_related_jira_tickets.invoke(call["args"])
+            findings.append(str(result))
+            messages.append(ToolMessage(content=str(result), tool_call_id=call["id"]))
+        resp = llm_with_tools.invoke(messages)
+        hops += 1
+
+    return "\n".join(f"- {f}" for f in dict.fromkeys(findings))
 
 _SYSTEM = """{persona}
 
@@ -43,6 +101,8 @@ Rules:
 - Every module maps to a component in the architecture below.
 - success_criteria are measurable: metric + threshold + measurement_method.
 - Aggressively populate out_of_scope.
+- If related Jira tickets are already tracked (see below), don't propose
+  work that duplicates them — scope around what's already in flight.
 
 KNOWLEDGE BASE:
 {grounding}
@@ -89,6 +149,15 @@ def poc_planner_node(state: BRDState) -> Dict[str, Any]:
         f"KEY DECISIONS: {arch_content.get('key_decisions', [])}\n\n"
         f"PLAN RISK REGISTER: {risks}"
     )
+
+    try:
+        jira_findings = _gather_jira_findings(get_llm(LLM_NAME, llm_config_of(state)), user)
+    except Exception as e:  # noqa: BLE001 - tool-calling is a supplementary check, not required
+        logger.warning("Jira ticket tool calls failed (%s); continuing without it.", e)
+        jira_findings = ""
+    if jira_findings:
+        logger.info("🎫 Jira tool calls returned %d finding(s)", jira_findings.count("\n") + 1)
+        user += f"\n\nRELATED JIRA TICKETS — VERIFIED VIA TOOL CALL:\n{jira_findings}"
 
     try:
         parsed = invoke_json(
