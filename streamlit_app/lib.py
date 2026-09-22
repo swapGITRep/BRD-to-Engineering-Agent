@@ -243,6 +243,20 @@ def langsmith_status() -> tuple[bool, bool, str]:
     return key_ok, tracing_on, project
 
 
+def jira_status() -> tuple[bool, str]:
+    """(configured, project) for the PoC Planner's check_related_jira_tickets
+    tool. Mirrors skills.jira_tickets._config()'s "site + email + token all
+    set" check, read-only and duplicated here rather than imported — same
+    reasoning as langsmith_status(): the sidebar renders before any run and
+    shouldn't need to reach into an agent-adjacent module just for a pill.
+    Keep this in sync if _config()'s required fields ever change."""
+    site  = os.environ.get("JIRA_SITE_URL", "").strip()
+    email = os.environ.get("JIRA_EMAIL", "").strip()
+    token = os.environ.get("JIRA_API_TOKEN", "").strip()
+    configured = bool(site and email and token) and token.lower() not in ("not-set", "changeme", "none")
+    return configured, os.environ.get("JIRA_PROJECT", "").strip()
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # App header / footer (rendered once per page, around st.navigation)
 # ─────────────────────────────────────────────────────────────────────────────
@@ -315,6 +329,19 @@ def render_sidebar_footer() -> None:
             st.caption("Optional — add `LANGCHAIN_API_KEY` to `.env` to enable tracing.")
         elif not tracing_on:
             st.caption("Set `LANGCHAIN_TRACING_V2=true` in `.env` to enable it.")
+
+        jira_ok, jira_project = jira_status()
+        if jira_ok:
+            jira_color, jira_dot = "#16a34a", "●"
+            jira_text = f"Jira ticket check ON — {jira_project}" if jira_project else "Jira ticket check ON — unscoped"
+        else:
+            jira_color, jira_dot, jira_text = "#6b7280", "○", "Jira ticket check not configured"
+        st.markdown(
+            f"<span class='pill' style='color:{jira_color};margin-top:6px'>{jira_dot} {jira_text}</span>",
+            unsafe_allow_html=True,
+        )
+        if not jira_ok:
+            st.caption("Optional — add `JIRA_SITE_URL`/`JIRA_EMAIL`/`JIRA_API_TOKEN` to `.env` to enable it.")
 
         hist = st.session_state.get("run_history", [])
         if hist:
