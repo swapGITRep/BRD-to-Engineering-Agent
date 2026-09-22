@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 # ─────────────────────────────────────────────────────────────────────────────
-# IK BRD Dev Agent — container image (Streamlit UI + LangGraph pipeline)
+# BRD Dev Agent — container image (Streamlit UI + LangGraph pipeline)
 # ─────────────────────────────────────────────────────────────────────────────
 FROM python:3.12-slim
 

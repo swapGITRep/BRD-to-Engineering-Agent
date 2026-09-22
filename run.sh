@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ============================================================
-# run.sh — Quick start for IK BRD Dev Agent
+# run.sh — Quick start for BRD Dev Agent
 # ============================================================
 set -e
 
@@ -8,7 +8,7 @@ PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$PROJECT_DIR"
 
 echo ""
-echo "📋 IK BRD Dev Agent"
+echo "📋 BRD Dev Agent"
 echo "════════════════════════════════════════"
 
 # ── Locate Python 3.12 ───────────────────────────────────────

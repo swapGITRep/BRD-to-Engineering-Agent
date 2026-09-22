@@ -1,4 +1,4 @@
-# Technical Design Document — IK BRD Dev Agent
+# Technical Design Document — BRD Dev Agent
 
 > Status: reflects the codebase as of 2026-09-16. This document describes what is
 > actually implemented and running (verified against live Azure deployment and
@@ -9,7 +9,7 @@
 
 ## 1. Purpose & Audience
 
-This document is the engineering reference for **Charter** (internal name: IK BRD
+This document is the engineering reference for **Charter** (internal name: BRD
 Dev Agent) — a multi-agent workflow that turns a Business Requirements
 Document into a scored, delivery-ready plan. It is written for engineers who need
 to extend, debug, or operate the system, and assumes familiarity with Python,

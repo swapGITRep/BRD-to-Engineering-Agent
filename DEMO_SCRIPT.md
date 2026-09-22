@@ -1,4 +1,4 @@
-# Demo Video Script — IK BRD Dev Agent
+# Demo Video Script — BRD Dev Agent
 
 Target runtime: **8–9 minutes**. Each segment lists the on-screen action, the
 talking points to narrate, and the exact evidence to point at — so the video
