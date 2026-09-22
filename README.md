@@ -84,7 +84,7 @@ specialist back for revision.
 | 3 | `engineering_plan` | Yes | Phases, risks, milestones and team — drafted, self-reviewed (Reflection), then revised if the review asks | Up to three: draft, review, revise |
 | 4 | `schedule` | Yes | Effort, timeline, resource matrix and critical path; its phases must match the plan's | One |
 | 5 | `architecture` | Yes | Components, data flows, NFR mapping, key decisions and a Mermaid diagram | One |
-| 6 | `poc_plan` | Yes | A falsifiable goal, modules mapped to real architecture components, measurable success criteria | One |
+| 6 | `poc_plan` | Yes | A falsifiable goal, modules mapped to real architecture components, measurable success criteria, checked against existing Jira tickets | One, plus a tool-call loop (up to 4 hops) against Jira |
 | 7 | `tech_stack` | Yes | 2–3 stack options with trade-offs and a recommendation, checked against the org tech radar | One, plus a tool-call loop (up to 6 hops) against the radar |
 | 8 | `critic` | Yes | Scores each deliverable on completeness, consistency, actionability and groundedness, applies the deterministic caps, picks at most one agent to revise, and assigns 🟢 / 🟡 / 🔴 badges | One per artifact scored |
 | 9 | `assemble` | **No** | Compiles the scored deliverables into one Markdown response document with a quality scorecard and revision-improvement table, and saves the report, manifest and bundled JSON | None — deterministic |
