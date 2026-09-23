@@ -1,6 +1,6 @@
 # Technical Design Document — BRD Dev Agent
 
-> Status: reflects the codebase as of 2026-09-16. This document describes what is
+> Status: reflects the codebase as of 2026-09-23. This document describes what is
 > actually implemented and running (verified against live Azure deployment and
 > the test suite), not a plan for what would eventually be built. Where a
 > deliberate trade-off was made, the reasoning is stated inline rather than left
@@ -102,9 +102,13 @@ folds three independent checks into one retry budget:
 2. **Schema shape** — `schema.model_validate(data)`; a missing required field or
    wrong type is a validation failure, not a silent pass-through.
 3. **Cross-agent contract** (where applicable) — a deterministic `extra_check`
-   callable. Two exist today: the PoC Planner's `maps_to_component` must name a
+   callable. Four exist today: the Schedule Estimator's phases must name a real
+   Engineering Plan phase (`agents/schedule_estimator_agent.py::
+   _check_phase_alignment`); the Solution Architect's `nfr_mapping` must cover
+   every routed non_functional requirement (`agents/solution_architect_agent.py::
+   _check_nfr_coverage`); the PoC Planner's `maps_to_component` must name a
    real Solution Architect component (`agents/poc_planner_agent.py::
-   _check_component_contracts`), and the Tech Stack Recommender's chosen
+   _check_component_contracts`); and the Tech Stack Recommender's chosen
    technologies must not be HOLD/RETIRE on the real tech radar
    (`agents/tech_stack_agent.py::_check_radar_compliance`).
 
@@ -276,8 +280,8 @@ specifics:
 |---|---|---|
 | Engineering Plan Generator | `EngineeringPlan` | Draft → LLM self-review (`_reflect`) → conditional revise, all in one node — the only agent with an internal Reflection loop. |
 | Schedule Estimator | `Schedule` | Reads the plan's `phases`/`team_composition` directly; sets `alignment_ok=False` + `alignment_notes` if it must deviate rather than silently diverging. |
-| Solution Architect | `SolutionArchitecture` | Every `nfr_category` requirement must appear in `nfr_mapping`; emits a Mermaid diagram, sanitized by `skills/mermaid_utils.py` before rendering. |
-| PoC Planner | `PocPlan` | `extra_check=_check_component_contracts` — the one agent with a cross-agent deterministic guardrail. |
+| Solution Architect | `SolutionArchitecture` | `extra_check=_check_nfr_coverage` — every routed non_functional req_id must appear in `nfr_mapping`; emits a Mermaid diagram, sanitized by `skills/mermaid_utils.py` before rendering. |
+| PoC Planner | `PocPlan` | `extra_check=_check_component_contracts` — its component references must name a real Solution Architect component. |
 | Tech Stack Recommender | `TechStack` | Real tool-calling (`_gather_tech_radar_findings`) before drafting, plus `extra_check=_check_radar_compliance` enforcing its own "never HOLD/RETIRE" rule deterministically. |
 
 ### 6.5 Assembly (`agents/assemble_agent.py`)

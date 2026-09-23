@@ -85,14 +85,20 @@ before the change;
 ### No enforcement that agents stay grounded in each other's real output
 - **Finding:** Only one handoff (PoC → Architecture) had a real cross-agent
   input check; Schedule reading the Plan and Tech Stack reading Architecture
-  didn't re-validate anything.
+  didn't re-validate anything. Solution Architect's own prompt rule ("EVERY
+  non_functional requirement id must appear in nfr_mapping") also had no
+  code enforcing it — the schema can validate shape but not completeness.
 - **Change:** Added `_check_phase_alignment` (Schedule's phases must be real
-  Engineering Plan phases) and `_check_radar_compliance` (Tech Stack options
+  Engineering Plan phases), `_check_radar_compliance` (Tech Stack options
   must never be tagged HOLD/RETIRE, enforced via a real `bind_tools` call to
-  `check_tech_radar_status`).
+  `check_tech_radar_status`), and `_check_nfr_coverage` (Solution Architect's
+  `nfr_mapping` must cover every routed non_functional req_id).
 - **Benefit:** Live-verified catching a real mistake — the model inventing
   "Contingency"/"All" as pseudo-phases that didn't exist upstream — proving
-  the checks do real work, not just add ceremony.
+  the checks do real work, not just add ceremony. All four specialist agents
+  with a deterministic invariant to enforce now enforce it; Engineering Plan
+  remains the only one whose failure modes needed a full LLM self-review
+  instead (see `TECHNICAL_DESIGN.md` §3.1, Reflection).
 
 ### No guardrail against sensitive content reaching the model
 - **Finding:** A BRD containing credentials or PII (emails, SSNs, card

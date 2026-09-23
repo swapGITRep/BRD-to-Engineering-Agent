@@ -236,6 +236,27 @@ class TestArchitect:
         # the fixture omitted), so check what changed rather than exact equality
         assert out["architecture"]["content"]["components"][0]["name"] == "API"
 
+    def test_missing_nfr_coverage_is_retried_once_then_succeeds(self, state, fake_llm, monkeypatch):
+        # The prompt already says "EVERY non_functional requirement id must
+        # appear in nfr_mapping" — this is what actually enforces it. R002 is
+        # the fixture's only non_functional requirement; an nfr_mapping that
+        # omits it must be caught and retried, not silently accepted.
+        monkeypatch.setattr(arch_mod, "grounding_for", lambda *a, **k: GROUNDING)
+        missing_nfr = {"context": "x", "components": [{"name": "API"}], "data_flows": [],
+                       "nfr_mapping": [], "key_decisions": [], "mermaid": "graph TD; A-->B;"}
+        covered = {"context": "x", "components": [{"name": "API"}], "data_flows": [],
+                   "nfr_mapping": [{"nfr_category": "performance", "requirement_ids": ["R002"]}],
+                   "key_decisions": [], "mermaid": "graph TD; A-->B;"}
+        fake = fake_llm(missing_nfr, covered)
+        monkeypatch.setattr(base, "get_llm", lambda *a, **k: fake)
+
+        out = arch_mod.solution_architect_node(state)
+
+        assert fake.call_count == 2                            # missing coverage, retry
+        assert out["architecture"]["status"] == "ok"
+        assert out["architecture"]["content"]["nfr_mapping"][0]["requirement_ids"] == ["R002"]
+        assert "R002" in str(fake.calls[1])                     # the gap was fed back
+
 
 # ── PoC Planner ──────────────────────────────────────────────────────────────
 class TestPoc:
@@ -432,7 +453,8 @@ class TestRevisionRun:
 # ── Persistence ──────────────────────────────────────────────────────────────
 def test_artifact_saved_to_disk(state, fake_llm, monkeypatch, tmp_path):
     monkeypatch.setattr(arch_mod, "grounding_for", lambda *a, **k: GROUNDING)
-    fake = fake_llm({"context": "x", "components": [], "nfr_mapping": [], "key_decisions": []})
+    fake = fake_llm({"context": "x", "components": [], "key_decisions": [],
+                     "nfr_mapping": [{"nfr_category": "performance", "requirement_ids": ["R002"]}]})
     monkeypatch.setattr(base, "get_llm", lambda *a, **k: fake)
     arch_mod.solution_architect_node(state)
     saved = json.loads((tmp_path / "deliverables" / "architecture.json").read_text())
