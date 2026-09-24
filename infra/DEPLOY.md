@@ -207,9 +207,9 @@ Live-observed on `cae-saathiapp-dev`:
 Query rewrite: drop the `_CL` suffix and the `_s` column suffix
 (`ContainerAppName_s` -> `ContainerAppName`, `Log_s` -> `Log`,
 `RevisionName_s` -> `RevisionName`, `Reason_s` -> `Reason`, `EventSource_s` ->
-`EventSource`). `Type_s` (`Normal`/`Warning`) has **no equivalent** —
-`ContainerAppSystemLogs.Type` is just the table name — so classify events by
-`Reason` (e.g. `ProbeFailed`, `ContainerTerminated`) instead.
+`EventSource`, `Type_s` -> `Type`). In `ContainerAppSystemLogs`, `Type` still
+carries `Normal` / `Warning` (live-verified), so severity-based alerts and
+workbook colour rules keep working after the rename.
 
 ## Secrets: provide them once, not on every deploy
 
