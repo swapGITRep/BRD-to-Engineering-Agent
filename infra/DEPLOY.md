@@ -172,35 +172,50 @@ destination, which writes `ContainerAppConsoleLogs_CL` / `ContainerAppSystemLogs
 `ContainerAppSystemLogs` tables exist in that workspace but stay empty until a
 diagnostic setting enables their categories.
 
-### Migrating an existing environment (dual-write first)
+### Migrating an existing environment (no dual-write)
 
 The environment is **shared** — other apps in it (e.g. `ca-account-service-dev`)
 also write to these tables and their queries would need the same rewrite.
+
+**Dual-write does not work.** Live-tested on `cae-saathiapp-dev`: with the
+destination still `log-analytics`, adding `ContainerAppConsoleLogs` /
+`ContainerAppSystemLogs` to the diagnostic setting produced **zero rows in the
+dedicated tables after 16+ minutes**, while `_CL` (and `ContainerAppHTTPLogs`)
+kept ingesting. This matches the Microsoft docs, which tie diagnostic-setting
+routing to the `azure-monitor` destination. So there is no verify-then-cut-over
+window: the switch is the destination change itself, and Console/System logs
+have a gap until the first dedicated rows arrive.
 
 ```bash
 ENVID=$(az containerapp env show -g $RG -n cae-saathiapp-dev --query id -o tsv)
 WS=$(az monitor log-analytics workspace show -g $RG -n log-saathiapp-dev --query id -o tsv)
 
-# 1. Add the two categories. Re-using the existing setting name overwrites it,
-#    so ContainerAppHTTPLogs is kept (a category can't be in two settings).
+# 1. Diagnostic setting with all three categories. Re-using the existing name
+#    overwrites it, so ContainerAppHTTPLogs is kept (a category can't be in
+#    two settings). Harmless to apply first: it emits nothing until step 2.
 az monitor diagnostic-settings create --name http-access-logs --resource "$ENVID" \
   --workspace "$WS" --export-to-resource-specific true \
   --logs '[{"category":"ContainerAppConsoleLogs","enabled":true},
            {"category":"ContainerAppSystemLogs","enabled":true},
            {"category":"ContainerAppHTTPLogs","enabled":true}]'
 
-# 2. Wait until rows appear (ingestion delay), while _CL keeps filling too:
-#    ContainerAppConsoleLogs | take 5
-
-# 3. Only then stop the legacy _CL writes.
+# 2. The actual cut-over: legacy _CL writes stop, dedicated tables start.
 az containerapp env update -g $RG -n cae-saathiapp-dev --logs-destination azure-monitor
+
+# 3. Confirm rows arrive (ingestion delay of several minutes):
+#    ContainerAppConsoleLogs | take 5
 ```
+
+To roll back: `az containerapp env update ... --logs-destination log-analytics
+--logs-workspace-id <customerId> --logs-workspace-key <key>` (the key is
+`az monitor log-analytics workspace get-shared-keys`; don't paste it anywhere
+that is logged).
 
 Query rewrite: drop the `_CL` suffix and the `_s` column suffix
 (`ContainerAppName_s` → `ContainerAppName`, `Log_s` → `Log`,
 `RevisionName_s` → `RevisionName`; `Reason_s` → `Reason`, `EventSource_s` →
 `EventSource`). The `Type_s` column (`Normal`/`Warning`) has no confirmed
-equivalent in `ContainerAppSystemLogs` — check once rows arrive before
+equivalent in `ContainerAppSystemLogs` (not yet observed with real rows) — check before
 rebuilding any alert or workbook colour rule on it. History stays in the
 `_CL` tables until workspace retention expires.
 
