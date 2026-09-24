@@ -157,6 +157,60 @@ traffic from the last healthy revision automatically while a new one fails
 to activate, so there is no user-facing downtime to race against while
 diagnosing.
 
+## Log tables: dedicated only
+
+Every environment routes logs through `appLogsConfiguration.destination:
+'azure-monitor'` plus a diagnostic setting for `ContainerAppConsoleLogs`,
+`ContainerAppSystemLogs` and `ContainerAppHTTPLogs`. These are dedicated
+(resource-specific) tables with clean column names. A **fresh** deployment gets
+this from `infra/main.bicep` (`container-app-logs` setting). The legacy
+`log-analytics` destination, which wrote `ContainerAppConsoleLogs_CL` /
+`ContainerAppSystemLogs_CL` (columns suffixed `_s`), is no longer used.
+
+An **existing** environment is not managed by this Bicep. `cae-saathiapp-dev`
+was migrated by hand on 2026-09-24; to migrate another one:
+
+```bash
+ENVID=$(az containerapp env show -g $RG -n <env> --query id -o tsv)
+WS=$(az monitor log-analytics workspace show -g $RG -n <workspace> --query id -o tsv)
+
+# 1. Diagnostic setting with all three categories (a category can't be in two
+#    settings, so reuse the name of any existing one to overwrite it).
+az monitor diagnostic-settings create --name container-app-logs --resource "$ENVID" \
+  --workspace "$WS" --export-to-resource-specific true \
+  --logs '[{"category":"ContainerAppConsoleLogs","enabled":true},
+           {"category":"ContainerAppSystemLogs","enabled":true},
+           {"category":"ContainerAppHTTPLogs","enabled":true}]'
+
+# 2. The cut-over. Legacy _CL writes stop; dedicated tables start.
+az containerapp env update -g $RG -n <env> --logs-destination azure-monitor
+```
+
+Live-observed on `cae-saathiapp-dev`:
+
+- **No dual-write.** With the destination still `log-analytics`, enabling the
+  Console/System categories produced zero dedicated-table rows after 16+
+  minutes. Only the destination change starts them.
+- **Cut-over cost.** First Console/System rows arrived ~10-12 minutes after the
+  flip, so expect that gap. The flip did not restart the app (same revision,
+  still `Healthy`). Other apps sharing the environment are affected too.
+- **Old tables can't be deleted.** `ContainerAppConsoleLogs_CL` /
+  `ContainerAppSystemLogs_CL` are platform-created classic tables. Delete,
+  retention-update and `table migrate` all fail (`Changing Classic table ...
+  schema ... is forbidden`; migrate fails on the `_timestamp_d` column). They
+  now receive nothing and their data expires with workspace retention.
+- **Rollback:** `az containerapp env update ... --logs-destination
+  log-analytics --logs-workspace-id <customerId> --logs-workspace-key <key>`
+  (get the key with `az monitor log-analytics workspace get-shared-keys`; don't
+  paste it anywhere that is logged).
+
+Query rewrite: drop the `_CL` suffix and the `_s` column suffix
+(`ContainerAppName_s` -> `ContainerAppName`, `Log_s` -> `Log`,
+`RevisionName_s` -> `RevisionName`, `Reason_s` -> `Reason`, `EventSource_s` ->
+`EventSource`, `Type_s` -> `Type`). In `ContainerAppSystemLogs`, `Type` still
+carries `Normal` / `Warning` (live-verified), so severity-based alerts and
+workbook colour rules keep working after the rename.
+
 ## Secrets: provide them once, not on every deploy
 
 The Bicep writes a Key Vault secret **only when you pass its parameter**.
@@ -215,6 +269,7 @@ azd up
 | Container Apps env | `cae-<prefix>` | only if `existingEnvironmentName` is blank |
 | Container Registry | `acr<prefix><hash>` | only if `existingAcrName` is blank |
 | Log Analytics + App Insights | `law-<prefix>`, `ai-<prefix>` | only if `existingEnvironmentName` is blank |
+| Diagnostic setting | `container-app-logs` (console, system, HTTP -> dedicated tables) | only if `existingEnvironmentName` is blank |
 
 ## Notes
 
