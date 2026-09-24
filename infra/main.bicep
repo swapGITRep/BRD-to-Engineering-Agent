@@ -251,16 +251,29 @@ resource newEnv 'Microsoft.App/managedEnvironments@2024-03-01' = if (!useExistin
   name: envName
   location: location
   properties: {
+    // 'azure-monitor' hands log routing to the diagnostic setting below, so rows
+    // land in the dedicated tables (ContainerAppConsoleLogs, ...SystemLogs,
+    // ...HTTPLogs). The old 'log-analytics' destination wrote legacy custom
+    // tables (ContainerAppConsoleLogs_CL / _SystemLogs_CL) with suffixed columns.
     appLogsConfiguration: {
-      destination: 'log-analytics'
-      logAnalyticsConfiguration: {
-        #disable-next-line BCP318
-        customerId: law.properties.customerId
-        #disable-next-line BCP318 BCP422
-        sharedKey: law.listKeys().primarySharedKey
-      }
+      destination: 'azure-monitor'
     }
     zoneRedundant: false
+  }
+}
+
+resource newEnvDiagnostics 'Microsoft.Insights/diagnosticSettings@2021-05-01-preview' = if (!useExistingEnv) {
+  name: 'container-app-logs'
+  scope: newEnv
+  properties: {
+    #disable-next-line BCP318
+    workspaceId: law.id
+    logAnalyticsDestinationType: 'Dedicated'
+    logs: [
+      { category: 'ContainerAppConsoleLogs', enabled: true }
+      { category: 'ContainerAppSystemLogs', enabled: true }
+      { category: 'ContainerAppHTTPLogs', enabled: true }
+    ]
   }
 }
 

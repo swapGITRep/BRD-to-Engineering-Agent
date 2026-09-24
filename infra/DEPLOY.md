@@ -157,6 +157,56 @@ traffic from the last healthy revision automatically while a new one fails
 to activate, so there is no user-facing downtime to race against while
 diagnosing.
 
+## Log tables: legacy `_CL` vs dedicated
+
+A **fresh** deployment (`existingEnvironmentName` blank) sets the environment's
+log destination to `azure-monitor` and adds a diagnostic setting
+(`container-app-logs`) routing `ContainerAppConsoleLogs`,
+`ContainerAppSystemLogs` and `ContainerAppHTTPLogs` to the workspace as
+dedicated tables (clean column names, no `_CL` suffix).
+
+An **existing** environment is not managed by this Bicep, so it keeps whatever
+it was created with. `cae-saathiapp-dev` uses the legacy `log-analytics`
+destination, which writes `ContainerAppConsoleLogs_CL` / `ContainerAppSystemLogs_CL`
+(columns suffixed `_s`). The dedicated `ContainerAppConsoleLogs` /
+`ContainerAppSystemLogs` tables exist in that workspace but stay empty until a
+diagnostic setting enables their categories.
+
+### Migrating an existing environment (dual-write first)
+
+The environment is **shared** — other apps in it (e.g. `ca-account-service-dev`)
+also write to these tables and their queries would need the same rewrite.
+
+```bash
+ENVID=$(az containerapp env show -g $RG -n cae-saathiapp-dev --query id -o tsv)
+WS=$(az monitor log-analytics workspace show -g $RG -n log-saathiapp-dev --query id -o tsv)
+
+# 1. Add the two categories. Re-using the existing setting name overwrites it,
+#    so ContainerAppHTTPLogs is kept (a category can't be in two settings).
+az monitor diagnostic-settings create --name http-access-logs --resource "$ENVID" \
+  --workspace "$WS" --export-to-resource-specific true \
+  --logs '[{"category":"ContainerAppConsoleLogs","enabled":true},
+           {"category":"ContainerAppSystemLogs","enabled":true},
+           {"category":"ContainerAppHTTPLogs","enabled":true}]'
+
+# 2. Wait until rows appear (ingestion delay), while _CL keeps filling too:
+#    ContainerAppConsoleLogs | take 5
+
+# 3. Only then stop the legacy _CL writes.
+az containerapp env update -g $RG -n cae-saathiapp-dev --logs-destination azure-monitor
+```
+
+Query rewrite: drop the `_CL` suffix and the `_s` column suffix
+(`ContainerAppName_s` → `ContainerAppName`, `Log_s` → `Log`,
+`RevisionName_s` → `RevisionName`; `Reason_s` → `Reason`, `EventSource_s` →
+`EventSource`). The `Type_s` column (`Normal`/`Warning`) has no confirmed
+equivalent in `ContainerAppSystemLogs` — check once rows arrive before
+rebuilding any alert or workbook colour rule on it. History stays in the
+`_CL` tables until workspace retention expires.
+
+Not verified: whether step 3 restarts running revisions. Do it off-hours, and
+check `az containerapp revision list` afterwards.
+
 ## Secrets: provide them once, not on every deploy
 
 The Bicep writes a Key Vault secret **only when you pass its parameter**.
@@ -215,6 +265,7 @@ azd up
 | Container Apps env | `cae-<prefix>` | only if `existingEnvironmentName` is blank |
 | Container Registry | `acr<prefix><hash>` | only if `existingAcrName` is blank |
 | Log Analytics + App Insights | `law-<prefix>`, `ai-<prefix>` | only if `existingEnvironmentName` is blank |
+| Diagnostic setting | `container-app-logs` (console, system, HTTP → dedicated tables) | only if `existingEnvironmentName` is blank |
 
 ## Notes
 
