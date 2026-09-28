@@ -197,4 +197,22 @@ before the change;
 - **Benefit:** Operational state that used to require a terminal is now
   visible at a glance in the product itself.
 
+### The knowledge base grounding every agent was invisible to the user
+- **Finding:** `knowledge_base/corpus/**` and `knowledge_base/personas/**`
+  ground every specialist agent's output (`skills/rag_retriever.py`), but
+  there was no way to see what was actually in them, which agent a persona
+  belongs to, or which chunks a given run actually cited, short of reading
+  the repo directly.
+- **Change:** Added a read-only "Knowledge Base" page (`streamlit_app/views/
+  knowledge_base.py`), reachable from a new "Reference" nav group. It renders
+  every corpus/persona file, shows the real chunk boundaries via the same
+  pure `chunk_text()` the retriever uses (no embedding calls, so it's free),
+  the per-doc-type weight multipliers from `AGENT_DOC_WEIGHTS`, and — when a
+  result is loaded — which agent(s) actually cited each document this run.
+- **Benefit:** Turns an opaque grounding step into something auditable. The
+  page is explicitly read-only: the corpus is baked into the deployed image
+  (not on either Azure Files share — only `vectorstore` and `output` are
+  mounted), so live editing was deliberately scoped out pending a decision
+  on how edits should persist.
+
 ---

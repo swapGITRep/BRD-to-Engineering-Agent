@@ -1,13 +1,13 @@
 """
 tests/test_lib.py
 ─────────────────────────────────────────────────────────────────────────────
-Unit tests for streamlit_app/lib.py's brd_id derivation helpers. No
-Streamlit session needed -- these are pure string functions.
+Unit tests for streamlit_app/lib.py's brd_id derivation helpers and other
+pure (non-Streamlit-session) functions.
 ─────────────────────────────────────────────────────────────────────────────
 """
 from __future__ import annotations
 
-from streamlit_app.lib import _derive_brd_id, _derive_brd_id_from_text
+from streamlit_app.lib import _derive_brd_id, _derive_brd_id_from_text, rag_chunk_config
 
 
 # ── _derive_brd_id (filename/label -> id) ─────────────────────────────────────
@@ -60,3 +60,13 @@ class TestDeriveBrdIdFromText:
     def test_result_is_capped_at_48_chars(self):
         long_title = "# " + " ".join(f"word{i}" for i in range(30))
         assert len(_derive_brd_id_from_text(long_title)) <= 48
+
+
+# ── rag_chunk_config (mirrors RagRetriever's own chunk sizing) ────────────────
+class TestRagChunkConfig:
+
+    def test_reads_real_config_values(self):
+        # config/llm_config.yaml's rag: block is the same file RagRetriever
+        # itself reads -- this proves the Knowledge Base page's chunk preview
+        # can't silently drift from what the retriever actually chunks with.
+        assert rag_chunk_config() == (800, 100)

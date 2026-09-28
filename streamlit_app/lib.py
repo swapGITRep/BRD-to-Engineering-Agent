@@ -214,6 +214,13 @@ def _llm_config() -> Dict[str, Any]:
         return {}
 
 
+def rag_chunk_config() -> tuple[int, int]:
+    """(chunk_tokens, chunk_overlap) exactly as RagRetriever reads them, so a
+    KB preview can mirror the retriever's real chunk boundaries."""
+    cfg = _llm_config().get("rag", {})
+    return int(cfg.get("chunk_tokens", 800)), int(cfg.get("chunk_overlap", 100))
+
+
 def agent_model_rows() -> List[Dict[str, str]]:
     from skills.llm_factory import resolve_llm_params
 

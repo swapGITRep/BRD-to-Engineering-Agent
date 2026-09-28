@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "streamlit-ui",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": ["-c", "PYTHONPATH=\"$PWD\" ./venv/bin/python -m streamlit run streamlit_app/app.py --server.headless true"],
+      "port": 8501
+    }
+  ]
+}

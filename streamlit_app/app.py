@@ -40,6 +40,9 @@ nav = st.navigation(
             st.Page("views/quality.py", title="Quality Report", icon="🏅"),
             st.Page("views/export.py", title="Export", icon="⬇️"),
         ],
+        "Reference": [
+            st.Page("views/knowledge_base.py", title="Knowledge Base", icon="📚"),
+        ],
     }
 )
 
