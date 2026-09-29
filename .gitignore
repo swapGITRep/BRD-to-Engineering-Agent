@@ -9,3 +9,4 @@ vectorstore/
 **/output/*
 !output/.gitkeep
 .DS_Store
+.claude/
