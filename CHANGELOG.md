@@ -256,4 +256,22 @@ before the change;
   mounted), so live editing was deliberately scoped out pending a decision
   on how edits should persist.
 
+### The eval harness's own pass/fail view had no UI, only a markdown file
+- **Finding:** `scripts/run_eval.py` writes a real aggregate view of the
+  labeled set — per-BRD `expect` results, revision-improvement rollup — to
+  `output/eval/<run_id>/summary.md`/`.json`, but nothing in the app read that
+  directory. The individual BRDs it runs do show up in Run History (once
+  `output/reports/` was fixed, see "A run's output silently went to the
+  wrong directory depending on cwd" above), but the harness's own pass/fail
+  judgment on the whole set — which is a different question from any single
+  BRD's Critic score — was invisible without opening a file directly.
+- **Change:** Added an "Eval Runs" page (`streamlit_app/views/eval_runs.py`)
+  listing every `output/eval/*/summary.json`, newest first: per-BRD stage/
+  badge/expectation-pass table, per-agent score detail, the revision-
+  improvement rollup, and a "Load" button per BRD that reuses the same
+  `load_historical_run()` Run History already uses.
+- **Benefit:** The eval harness's own verdict on the labeled set — not just
+  each BRD's individual quality score — is now visible in the product,
+  without needing to open a generated markdown file by hand.
+
 ---
