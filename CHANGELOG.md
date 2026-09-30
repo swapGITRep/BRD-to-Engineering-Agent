@@ -41,6 +41,27 @@ before the change;
 - **Benefit:** The before/after metric is trustworthy, not just present — a
   metric that exists but can't be trusted is worse than no metric at all.
 
+### `run.sh` broke after the project folder moved, with confusing errors
+- **Finding:** Two separate, live-caught failures on a fresh `./run.sh`: (1)
+  `pip: command not found` — every script in `venv/bin` (pip, streamlit) has a
+  shebang hardcoding the absolute path the venv was created under, which
+  breaks the moment the project folder is renamed or moved, even though
+  `venv/bin/python` itself still works (it's a symlink, not a shebang
+  script); (2) `.env: line N: Development: command not found` — a `source`d
+  `.env` value with an unquoted space (`JIRA_PROJECT=Agent Development
+  Team`) is parsed as three shell tokens, and `set -e` then kills the script
+  on that line with no explanation of why.
+- **Change:** `run.sh` now installs dependencies and launches Streamlit via
+  `python -m pip` / `python -m streamlit` instead of the bare commands,
+  which resolves through the working interpreter rather than each script's
+  own shebang. The `.env` load now catches a non-zero exit from `source` and
+  prints what's actually wrong (an unquoted multi-word value) instead of
+  just dying on bash's raw error. `.env.example` documents the quoting rule
+  up front and shows it on the one placeholder most likely to need it.
+- **Benefit:** A moved/renamed project folder or a real Jira project name
+  with a space in it no longer produces a cryptic, unrelated-looking error —
+  the script's own message names the real cause.
+
 ---
 
 ## Guardrails & Validation

@@ -66,9 +66,14 @@ source venv/bin/activate
 export PYTHONPATH="$PROJECT_DIR"
 
 # ── Install dependencies ──────────────────────────────────────
+# `python -m pip` (not a bare `pip`) so this still works if venv/bin/pip's own
+# shebang is stale — e.g. after the project folder was moved or renamed, which
+# leaves every *script* in venv/bin pointing at a path that no longer exists.
+# `venv/bin/python` itself is a symlink chain to the real interpreter, so
+# invoking pip as a module through it sidesteps the broken shebang entirely.
 echo "📦 Installing dependencies..."
-pip install -q --upgrade pip
-pip install -q -r requirements.txt
+python -m pip install -q --upgrade pip
+python -m pip install -q -r requirements.txt
 
 # Real title/description/OG tags in Streamlit's static HTML (st.set_page_config
 # only sets these client-side) — same patch the Docker image applies at build time.
@@ -80,8 +85,25 @@ if [ ! -f ".env" ]; then
     cp .env.example .env
 fi
 
-# Load .env
-set -a; source .env; set +a
+# Load .env — sourced, not parsed, so any value must be valid shell syntax.
+# A value with spaces that isn't quoted (JIRA_PROJECT=Agent Development Team)
+# makes bash treat the extra words as a command, failing with a cryptic
+# "<second word>: command not found" instead of a clear message — catch that
+# here and say so plainly, since `set -e` would otherwise just kill the script.
+set +e
+set -a
+source .env
+_env_status=$?
+set +a
+set -e
+if [ "$_env_status" -ne 0 ]; then
+    echo ""
+    echo "❌ Failed to load .env (exit $_env_status)."
+    echo "   Likely cause: a value containing spaces isn't quoted."
+    echo "   Wrap it in quotes, e.g.:  JIRA_PROJECT=\"Agent Development Team\""
+    echo ""
+    exit 1
+fi
 
 # Validate OPENAI_API_KEY
 if [ -z "$OPENAI_API_KEY" ] || [ "$OPENAI_API_KEY" = "sk-your-openai-key-here" ]; then
@@ -112,7 +134,8 @@ if [ "$MODE" = "ui" ]; then
     echo "   URL: http://localhost:8501"
     echo "════════════════════════════════════════"
     echo ""
-    PYTHONPATH="$PROJECT_DIR" streamlit run "$PROJECT_DIR/streamlit_app/app.py"
+    # python -m streamlit, not a bare `streamlit` -- see the pip note above.
+    PYTHONPATH="$PROJECT_DIR" python -m streamlit run "$PROJECT_DIR/streamlit_app/app.py"
 
 elif [ "$MODE" = "cli" ]; then
     BRD_FILE="${2:-data/sample_brds/payments_reconciliation_brd.md}"
