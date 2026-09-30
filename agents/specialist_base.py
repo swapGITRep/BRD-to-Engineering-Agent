@@ -19,13 +19,12 @@ from __future__ import annotations
 import json
 import logging
 from datetime import datetime, timezone
-from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Type
 
 from langchain_core.messages import HumanMessage, SystemMessage
 from pydantic import BaseModel
 
-from orchestration.state import AgentArtifact, ArtifactStatus, BRDState, Stage
+from orchestration.state import AgentArtifact, ArtifactStatus, BRDState, Stage, resolve_output_dir
 from skills.json_utils import invoke_validated_json
 from skills.llm_factory import get_llm
 from skills.rag_retriever import get_retriever
@@ -192,7 +191,7 @@ def fail(agent_key: str, state: BRDState, error_msg: str, next_stage: str) -> Di
 
 
 def _save(agent_key: str, artifact: AgentArtifact, state: BRDState) -> None:
-    out_dir = Path(
+    out_dir = resolve_output_dir(
         state.get("framework_config", {}).get("output", {}).get("deliverables_dir", "output/deliverables")
     )
     out_dir.mkdir(parents=True, exist_ok=True)

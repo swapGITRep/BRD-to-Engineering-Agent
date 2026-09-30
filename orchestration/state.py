@@ -14,9 +14,12 @@ State is persisted via a LangGraph SqliteSaver checkpointer, keyed by thread_id.
 from __future__ import annotations
 
 from enum import Enum
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from typing_extensions import TypedDict
+
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent  # orchestration/ -> project root
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -226,6 +229,19 @@ def make_initial_state(
 # ─────────────────────────────────────────────────────────────────────────────
 # Helpers
 # ─────────────────────────────────────────────────────────────────────────────
+def resolve_output_dir(configured: str) -> Path:
+    """Anchor a configured output path (config/brd_config.yaml's output:
+    block -- "output/parsed", "output/deliverables", "output/reports") to
+    the project root, not the current process's cwd. Live-caught: running
+    scripts/run_eval.py from inside scripts/ silently wrote a whole parallel
+    output tree at scripts/output/ instead of the real output/ the Streamlit
+    UI's Run History reads from -- every completed run "succeeded" with no
+    error, it just wasn't visible anywhere. An already-absolute path (as
+    Azure's deployment can set) passes through unchanged."""
+    p = Path(configured)
+    return p if p.is_absolute() else _PROJECT_ROOT / p
+
+
 def empty_artifact(agent: str) -> AgentArtifact:
     """Return a blank, pending AgentArtifact envelope for the given agent."""
     return AgentArtifact(

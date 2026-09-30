@@ -62,6 +62,26 @@ before the change;
   with a space in it no longer produces a cryptic, unrelated-looking error —
   the script's own message names the real cause.
 
+### A run's output silently went to the wrong directory depending on cwd
+- **Finding:** Live-caught: `python scripts/run_eval.py` run from inside
+  `scripts/` completed 8 BRDs successfully (`stage=complete`, no errors) but
+  none of them appeared in the Streamlit UI's Run History. Root cause:
+  `agents/specialist_base.py::_save()`, `agents/assemble_agent.py::_save()`,
+  and `agents/brd_ingest_agent.py`'s parsed-output writer all resolved their
+  configured path (`config/brd_config.yaml`'s plain relative
+  `"output/reports"` etc.) against the current process's cwd, not the
+  project root. `run_eval.py`'s own `output/eval/<run_id>` is correctly
+  anchored via `PROJECT_ROOT`, so that part looked fine — but the deeper
+  per-agent/per-BRD writes silently landed under `scripts/output/` instead,
+  a whole parallel tree nobody was looking at, with zero error anywhere.
+- **Change:** Added `orchestration/state.py::resolve_output_dir()` — anchors
+  a relative configured path to the project root (an already-absolute path,
+  as Azure's deployment can set, passes through unchanged) — and switched
+  all three write sites to use it instead of resolving the raw string
+  directly.
+- **Benefit:** Every run's output lands in the one real `output/` tree the
+  UI reads from, regardless of which directory a script was invoked from.
+
 ---
 
 ## Guardrails & Validation
