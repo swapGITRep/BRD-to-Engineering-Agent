@@ -78,7 +78,31 @@ def inject_css() -> None:
     st.markdown(
         """
         <style>
-          :root { --accent:#4f46e5; --accent-2:#7c6cf6; }
+          /* Brand accent + header tokens. base/light values on bare :root, dark
+             overrides only under prefers-color-scheme so the app follows the
+             OS/browser setting -- no [theme] block in config.toml, since even
+             just setting primaryColor there disables Streamlit's own automatic
+             light/dark switching (live-verified against Streamlit 1.64). The
+             accent itself is reasserted below on stBaseButton-primary, since
+             Streamlit's native theme has no accent color without that config
+             key. */
+          :root {
+            --accent:#4f46e5; --accent-2:#7c6cf6;
+            --header-bg:#ffffff; --header-border:rgba(15,23,42,0.08);
+            --header-title:#0f172a; --header-tagline:#64748b; --header-sep:#cbd5e1;
+          }
+          @media (prefers-color-scheme: dark) {
+            :root {
+              --header-bg:#262730; --header-border:rgba(255,255,255,0.08);
+              --header-title:#fafafa; --header-tagline:#9ca3af; --header-sep:#4b5563;
+            }
+          }
+          [data-testid="stBaseButton-primary"] {
+            background-color: var(--accent); border-color: var(--accent); color: #ffffff;
+          }
+          [data-testid="stBaseButton-primary"]:hover {
+            background-color: var(--accent-2); border-color: var(--accent-2); color: #ffffff;
+          }
           /* Reserve space so the fixed header/footer bars never cover content. */
           .block-container { padding-top: 7.5rem; padding-bottom: 6rem; max-width: 1180px; }
           section[data-testid="stSidebar"] > div { padding-top: 7.5rem; padding-bottom: 6rem; }
@@ -113,18 +137,19 @@ def inject_css() -> None:
           .step.err { border-color:#dc262655; background:#dc262612; }
 
           /* Fixed header bar — pinned to the top of the viewport, above the sidebar too.
-             Colors are hard-set (not inherited) so it stays legible regardless of
-             which theme Streamlit itself is running — light or dark. z-index is above
-             Streamlit's own header (999990) AND its mobile sidebar overlay (999991) so
-             the bar stays on top when the sidebar drawer is opened on narrow screens.
+             Colors come from the --header-* tokens above (light by default, dark
+             under prefers-color-scheme), so this bar follows the OS/browser
+             theme instead of clashing with it. z-index is above Streamlit's own
+             header (999990) AND its mobile sidebar overlay (999991) so the bar
+             stays on top when the sidebar drawer is opened on narrow screens.
              A single compact row (icon badge + name + tagline) reads as a real app
              top bar rather than a stacked banner. */
           .app-header-fixed {
             position: fixed; top: 60px; left: 0; right: 0; z-index: 1000000;
             height: 52px; display: flex; align-items: center;
-            background: #ffffff;
+            background: var(--header-bg);
             padding: 0 1.5rem;
-            border-bottom: 1px solid rgba(15,23,42,0.08);
+            border-bottom: 1px solid var(--header-border);
             box-shadow: 0 1px 3px rgba(15,23,42,0.05);
           }
           .app-header-inner {
@@ -139,10 +164,10 @@ def inject_css() -> None:
             box-shadow: 0 1px 2px rgba(79,70,229,0.4);
             font-size: 1rem; line-height: 1;
           }
-          .app-header-title { flex: none; font-size: 1.05rem; font-weight: 800; letter-spacing:-0.01em; color:#0f172a; }
-          .app-header-sep { flex: none; color: #cbd5e1; }
+          .app-header-title { flex: none; font-size: 1.05rem; font-weight: 800; letter-spacing:-0.01em; color:var(--header-title); }
+          .app-header-sep { flex: none; color: var(--header-sep); }
           .app-header-tagline {
-            font-size:0.85rem; color:#64748b; font-weight: 400;
+            font-size:0.85rem; color:var(--header-tagline); font-weight: 400;
             overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
           }
           @media (max-width: 680px) {

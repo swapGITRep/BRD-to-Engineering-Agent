@@ -274,4 +274,23 @@ before the change;
   each BRD's individual quality score — is now visible in the product,
   without needing to open a generated markdown file by hand.
 
+### The UI never followed the OS/browser's dark mode setting
+- **Finding:** Live-verified: with the system in dark mode, the app rendered
+  fully light regardless. Root cause was `.streamlit/config.toml`'s `[theme]`
+  block — even with only `primaryColor` set, no explicit `base` — which
+  disables Streamlit's own automatic light/dark switching entirely (confirmed
+  against Streamlit 1.64 by removing the block and observing auto-switching
+  return). The custom-injected header bar was also hardcoded light-only
+  (`background: #ffffff`), so it would have clashed against a dark body even
+  after that fix.
+- **Change:** Removed `[theme]` from `config.toml`, restoring Streamlit's
+  native `prefers-color-scheme` auto-switching. Reasserted the brand accent
+  color directly on `[data-testid="stBaseButton-primary"]` via CSS instead
+  (Streamlit's native theme has no accent without the removed config key).
+  Converted the header bar's colors to tokens with a
+  `@media (prefers-color-scheme: dark)` override.
+- **Benefit:** The app now follows the user's actual system/browser theme
+  setting, live-verified in both directions with no visual regression in
+  light mode and no clashing light-on-dark header in dark mode.
+
 ---
