@@ -163,7 +163,7 @@ early — there is nothing downstream to build on without parsed requirements.
 | UI | Streamlit, `st.navigation` | Background-thread job runner (§6.1) decouples pipeline execution from the Streamlit script lifecycle. |
 | Tracing | LangSmith (optional) | Auto-detected from `.env`; see `_configure_langsmith()`. |
 | Deployment | Azure Container Apps | Single always-on instance; see §9. |
-| Tests | pytest, 207 tests | Every LLM/RAG call stubbed; `tests/test_workflow_smoke.py` runs the real compiled graph end-to-end. |
+| Tests | pytest, 209 tests | Every LLM/RAG call stubbed; `tests/test_workflow_smoke.py` runs the real compiled graph end-to-end. |
 
 ## 5. Data Model
 
@@ -557,7 +557,7 @@ actual running build. Full provisioning/deploy commands: `infra/DEPLOY.md`.
 
 ### 10.1 Unit/integration tests
 
-`tests/`, 207 tests, `pytest tests/ -q`. Every LLM and RAG call is stubbed
+`tests/`, 209 tests, `pytest tests/ -q`. Every LLM and RAG call is stubbed
 (`FakeLLM` in `conftest.py`); `test_workflow_smoke.py` runs the real compiled
 graph end-to-end including the revision loop. Zero network calls, zero cost —
 the whole suite runs in ~1.3s, which is itself a signal: if a change makes it
@@ -662,7 +662,7 @@ Run in order; a failure at any step blocks the release. Step 1 is enforced by
 CI (`test` job, `.github/workflows/deploy.yml`); steps 2–3 are still run
 manually only — §11.4 covers that remaining gap.
 
-1. **Static/unit correctness** — `pytest tests/ -q` (207 tests) and `pyflakes`
+1. **Static/unit correctness** — `pytest tests/ -q` (209 tests) and `pyflakes`
    over every touched file must both be clean. CI-enforced: the `test` job
    runs both, with no Azure credentials or API keys required (every LLM/RAG
    call in the suite is stubbed), and `build-and-deploy` declares
