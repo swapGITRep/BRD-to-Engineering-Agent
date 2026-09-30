@@ -3,10 +3,22 @@ from __future__ import annotations
 
 import streamlit as st
 
-from streamlit_app.lib import SAMPLE_DIR, render_job_watcher, render_stage_tracker, run_analysis
+from streamlit_app.lib import (
+    MAX_UPLOAD_BYTES,
+    MIN_BRD_CHARS,
+    SAMPLE_DIR,
+    render_job_watcher,
+    render_stage_tracker,
+    run_analysis,
+)
 
 st.title("BRD Upload")
 st.caption("Supported formats: .md · .txt · .docx · .pdf")
+st.caption(
+    f"Guardrails: up to {MAX_UPLOAD_BYTES // (1024 * 1024)} MB per upload · "
+    f"at least {MIN_BRD_CHARS} characters of content · "
+    "credentials and PII are scanned and redacted before anything reaches a model"
+)
 
 job_active = render_job_watcher()
 
