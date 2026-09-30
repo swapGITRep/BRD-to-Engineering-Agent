@@ -183,6 +183,10 @@ never pass/fail on their own — a lower score is data about the system, not a
 bug in the check. Compare two run_ids' `summary.json` for real before/after
 numbers across a change.
 
+The **Eval Runs** page in the UI lists every past run of this script —
+per-BRD stage/badge/expectation table, per-agent scores, the
+revision-improvement rollup — without opening the generated files by hand.
+
 ---
 
 ## Deployment

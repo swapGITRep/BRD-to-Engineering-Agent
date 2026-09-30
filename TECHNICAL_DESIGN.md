@@ -623,7 +623,9 @@ that it "works."
 
 **Output**: `output/eval/<run_id>/` — one JSON per BRD, plus `summary.md`
 and `summary.json`. Compare two `run_id`s' `summary.json` for real before/
-after evidence across a prompt or config change.
+after evidence across a prompt or config change. The Streamlit UI's "Eval
+Runs" page (`streamlit_app/views/eval_runs.py`) lists every run from this
+directory, newest first, without opening the generated files by hand.
 
 ```bash
 python scripts/run_eval.py                                    # the whole set
