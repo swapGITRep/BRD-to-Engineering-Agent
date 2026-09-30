@@ -67,6 +67,11 @@ and narrate over the progress dialog while it runs in the background thread.
   patterns.md#3", ...]` entry, and say: "that's a real chunk reference, not
   decoration — the Critic resolves it back to actual text and checks
   groundedness against it."
+- Switch to the UI's **Knowledge Base** page and show that same document:
+  the real chunk boundaries the retriever actually used, the per-agent
+  weight multipliers for its category, and — once the run above has
+  completed — a "cited in this run" badge on the exact chunk just referenced.
+  "Same grounding step, made auditable instead of opaque."
 
 ---
 
@@ -133,9 +138,11 @@ open the resulting report's confidentiality banner and the
 
 **[Evaluation Framework]**
 
-**Show:** a terminal running `python scripts/run_eval.py`, then the
-resulting `output/eval/<run_id>/summary.md` — the per-BRD table and the
-"Revision improvement" aggregate section.
+**Show:** a terminal running `python scripts/run_eval.py`, then the UI's
+**Eval Runs** page — the same per-BRD table and "Revision improvement"
+aggregate section, rendered instead of a raw `output/eval/<run_id>/
+summary.md` file, plus the per-agent score breakdown and a **Load** button
+that jumps straight from an eval result into the full viewer pages.
 
 **Say:** "Two independent evaluation methods: this structural harness over
 8 labeled BRDs — 2 baselines, 6 built to stress a specific edge case — that
@@ -156,7 +163,7 @@ green, then the deployed app's footer showing the matching `APP_BUILD`
 tag.
 
 **Say:**
-- "Every push to `main` runs lint and the full test suite — 166 tests,
+- "Every push to `main` runs lint and the full test suite — 213 tests,
   stubbed LLM calls, no API key needed — before anything can build or
   deploy. `build-and-deploy` literally can't start until `test` passes."
 - "Pre-release gates and success/failure criteria are written down, not
