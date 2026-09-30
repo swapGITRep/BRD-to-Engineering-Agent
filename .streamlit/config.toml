@@ -5,6 +5,7 @@ font = "sans serif"
 [server]
 headless = false
 port = 8501
+maxUploadSize = 15
 
 [browser]
 gatherUsageStats = false
