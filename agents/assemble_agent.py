@@ -18,10 +18,15 @@ from __future__ import annotations
 import json
 import logging
 from datetime import datetime, timezone
-from pathlib import Path
 from typing import Any, Callable, Dict, List
 
-from orchestration.state import SPECIALIST_AGENTS, BRDState, Stage, revision_improvement
+from orchestration.state import (
+    SPECIALIST_AGENTS,
+    BRDState,
+    Stage,
+    resolve_output_dir,
+    revision_improvement,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -342,7 +347,7 @@ _RENDERERS: Dict[str, Callable[[Dict[str, Any]], str]] = {
 
 # ─────────────────────────────────────────────────────────────────────────────
 def _save(brd_id: str, state: BRDState, doc: str) -> None:
-    out_dir = Path(state.get("framework_config", {}).get("output", {}).get("report_dir", "output/reports"))
+    out_dir = resolve_output_dir(state.get("framework_config", {}).get("output", {}).get("report_dir", "output/reports"))
     out_dir.mkdir(parents=True, exist_ok=True)
     path = out_dir / f"{brd_id}_response.md"
     path.write_text(doc, encoding="utf-8")

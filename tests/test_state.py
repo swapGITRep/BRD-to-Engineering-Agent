@@ -15,6 +15,7 @@ from orchestration.state import (
     badge_for_score,
     empty_artifact,
     make_initial_state,
+    resolve_output_dir,
     revision_improvement,
 )
 
@@ -183,3 +184,21 @@ class TestRevisionImprovement:
         history = {"schedule": [_s(0.80, 0), _s(0.70, 1)]}
         out = revision_improvement(history)
         assert out["schedule"]["delta"] == pytest.approx(-0.10)
+
+
+# ── resolve_output_dir ────────────────────────────────────────────────────────
+class TestResolveOutputDir:
+
+    def test_relative_path_anchored_to_project_root_not_cwd(self, monkeypatch, tmp_path):
+        # Live-caught: scripts/run_eval.py run from inside scripts/ made this
+        # resolve against scripts/ instead of the real project root, silently
+        # writing a whole parallel output/ tree the UI never looks at.
+        monkeypatch.chdir(tmp_path)
+        result = resolve_output_dir("output/reports")
+        assert str(result) != str(tmp_path / "output/reports")
+        assert result.is_absolute()
+        assert result.parts[-2:] == ("output", "reports")
+
+    def test_absolute_path_passes_through_unchanged(self, tmp_path):
+        abs_path = tmp_path / "custom" / "reports"
+        assert resolve_output_dir(str(abs_path)) == abs_path

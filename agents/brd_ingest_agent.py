@@ -16,10 +16,9 @@ from __future__ import annotations
 import json
 import logging
 from datetime import datetime, timezone
-from pathlib import Path
 from typing import Any, Dict
 
-from orchestration.state import BRDState, Stage
+from orchestration.state import BRDState, Stage, resolve_output_dir
 from skills.brd_parser import (
     classify_requirements,
     extract_sections,
@@ -107,7 +106,7 @@ def _persist(
     metadata: Dict[str, Any],
     confidentiality_notes: list,
 ) -> None:
-    out_dir = Path(framework_config.get("output", {}).get("parsed_dir", "output/parsed"))
+    out_dir = resolve_output_dir(framework_config.get("output", {}).get("parsed_dir", "output/parsed"))
     out_dir.mkdir(parents=True, exist_ok=True)
     payload = {
         "brd_id": brd_id,
