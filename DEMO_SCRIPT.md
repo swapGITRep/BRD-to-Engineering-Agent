@@ -15,7 +15,8 @@ production log never has to touch a real-looking secret).
 
 ## 1. Cold open — the problem (0:00–0:30)
 
-**Show:** title card, then the README's one-line description.
+**Show:** title card (`docs/assets/charter_title_card.html` — open it
+directly in a browser, full screen), then the README's one-line description.
 
 **Say:** "This turns a Business Requirements Document into a delivery
 package — an engineering plan, schedule, solution architecture, PoC plan,

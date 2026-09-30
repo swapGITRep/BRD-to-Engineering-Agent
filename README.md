@@ -1,4 +1,18 @@
-# BRD Dev Agent
+<div align="center">
+
+# 🧭 Charter
+
+**Turns a Business Requirements Document into a scored, build-ready delivery plan.**
+
+<br>
+
+<img src="docs/assets/swapnil-nayak.webp" width="48" height="48" alt="Swapnil Nayak"><br>
+<b>Swapnil Nayak</b><br>
+<sub>Applied Agentic AI Program · Mid-June 2026</sub>
+
+</div>
+
+---
 
 > A multi-agent workflow that turns a **Business Requirements Document**
 > into a delivery package — engineering plan, schedule, solution architecture,

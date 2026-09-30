@@ -1,0 +1,156 @@
+<title>Charter Title Card</title>
+
+<style>
+  /* Layout: full-bleed centered title card -- icon badge, wordmark, tagline,
+     a presenter credit row, and a caption line borrowed verbatim from the
+     app's own footer copy, all stacked and centered for a held-frame open. */
+  :root {
+    --bg: #ffffff;
+    --fg: #0f172a;
+    --muted: #64748b;
+    --accent: #4f46e5;
+    --accent-2: #7c6cf6;
+    --hairline: rgba(15,23,42,0.10);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #1e1b3a;
+      --fg: #f1f5f9;
+      --muted: #8b87b8;
+      --hairline: rgba(255,255,255,0.12);
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #1e1b3a;
+    --fg: #f1f5f9;
+    --muted: #8b87b8;
+    --hairline: rgba(255,255,255,0.12);
+    color-scheme: dark;
+  }
+
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px 16px;
+  }
+
+  .card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: clamp(18px, 3.6vw, 30px);
+    text-align: center;
+    max-width: 720px;
+  }
+
+  .badge {
+    width: clamp(72px, 12vw, 128px);
+    height: clamp(72px, 12vw, 128px);
+    border-radius: clamp(16px, 2.4vw, 28px);
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    box-shadow: 0 10px 30px -8px rgba(79,70,229,0.55);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: clamp(38px, 6.4vw, 68px);
+    line-height: 1;
+  }
+
+  .wordmark {
+    font-family: 'Sora', system-ui, -apple-system, sans-serif;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    font-size: clamp(44px, 9vw, 92px);
+    line-height: 1.02;
+    color: var(--fg);
+    margin: 0;
+    text-wrap: balance;
+  }
+
+  .tagline {
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    font-weight: 400;
+    font-size: clamp(15px, 2.3vw, 21px);
+    line-height: 1.5;
+    color: var(--muted);
+    margin: 0;
+    max-width: 30ch;
+    text-wrap: balance;
+  }
+
+  .hairline {
+    width: clamp(48px, 8vw, 88px);
+    height: 1px;
+    background: var(--hairline);
+    border: none;
+    margin: 0;
+  }
+
+  .credit {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .avatar {
+    width: clamp(38px, 5.5vw, 52px);
+    height: clamp(38px, 5.5vw, 52px);
+    border-radius: 50%;
+    object-fit: cover;
+    flex: none;
+    box-shadow: 0 0 0 3px var(--bg), 0 0 0 4px var(--hairline);
+  }
+
+  .credit-text { text-align: left; }
+
+  .credit-name {
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    font-weight: 600;
+    font-size: clamp(13px, 1.9vw, 16px);
+    color: var(--fg);
+    margin: 0;
+    letter-spacing: -0.005em;
+  }
+
+  .credit-role {
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    font-weight: 400;
+    font-size: clamp(11px, 1.6vw, 13px);
+    color: var(--muted);
+    margin: 2px 0 0;
+  }
+
+  .footnote {
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    font-weight: 600;
+    font-size: clamp(10px, 1.5vw, 12px);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+    opacity: 0.85;
+    margin: 0;
+  }
+</style>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@800&family=Inter:wght@400;600&display=swap" rel="stylesheet">
+
+<div class="card">
+  <div class="badge" role="img" aria-label="Charter compass icon">🧭</div>
+  <h1 class="wordmark">Charter</h1>
+  <p class="tagline">Turns a Business Requirements Document into a scored, build-ready delivery plan.</p>
+  <hr class="hairline">
+  <div class="credit">
+    <img class="avatar" src="swapnil-nayak.webp" alt="Swapnil Nayak">
+    <div class="credit-text">
+      <p class="credit-name">Swapnil Nayak</p>
+      <p class="credit-role">Applied Agentic AI Program · Mid-June 2026</p>
+    </div>
+  </div>
+  <p class="footnote">Internal engineering tool · LangGraph · RAG · OpenAI</p>
+</div>
