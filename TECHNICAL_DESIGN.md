@@ -1,6 +1,6 @@
 # Technical Design Document — BRD Dev Agent
 
-> Status: reflects the codebase as of 2026-09-23. This document describes what is
+> Status: reflects the codebase as of 2026-09-30. This document describes what is
 > actually implemented and running (verified against live Azure deployment and
 > the test suite), not a plan for what would eventually be built. Where a
 > deliberate trade-off was made, the reasoning is stated inline rather than left
@@ -163,7 +163,7 @@ early — there is nothing downstream to build on without parsed requirements.
 | UI | Streamlit, `st.navigation` | Background-thread job runner (§6.1) decouples pipeline execution from the Streamlit script lifecycle. |
 | Tracing | LangSmith (optional) | Auto-detected from `.env`; see `_configure_langsmith()`. |
 | Deployment | Azure Container Apps | Single always-on instance; see §9. |
-| Tests | pytest, 166 tests | Every LLM/RAG call stubbed; `tests/test_workflow_smoke.py` runs the real compiled graph end-to-end. |
+| Tests | pytest, 207 tests | Every LLM/RAG call stubbed; `tests/test_workflow_smoke.py` runs the real compiled graph end-to-end. |
 
 ## 5. Data Model
 
@@ -555,18 +555,86 @@ actual running build. Full provisioning/deploy commands: `infra/DEPLOY.md`.
 
 ## 10. Testing & Evaluation
 
-**Unit/integration tests** (`tests/`, 166 tests, `pytest tests/ -q`): every LLM
-and RAG call is stubbed (`FakeLLM` in `conftest.py`); `test_workflow_smoke.py`
-runs the real compiled graph end-to-end including the revision loop.
+### 10.1 Unit/integration tests
 
-**Evaluation set** (`data/eval_brds/`, `scripts/run_eval.py`): 8 labeled BRDs —
-2 clear baselines plus 6 built to stress a specific edge case (ambiguous/hedged
-language, directly conflicting NFRs, an oversized 22-requirement migration, a
-2-requirement sparse BRD, regulatory/compliance depth, five-shape integration
-variety). Runs the *real* pipeline and checks actual behavior — requirement
-counts, ambiguity flagging, completion — against each BRD's `expect` block,
-independent of and complementary to the Critic's own per-run scoring. See
-`README.md#evaluation`.
+`tests/`, 207 tests, `pytest tests/ -q`. Every LLM and RAG call is stubbed
+(`FakeLLM` in `conftest.py`); `test_workflow_smoke.py` runs the real compiled
+graph end-to-end including the revision loop. Zero network calls, zero cost —
+the whole suite runs in ~1.3s, which is itself a signal: if a change makes it
+take noticeably longer, something is silently making a real API call (a real
+regression caught this way once — see `CHANGELOG.md`, "External Tool
+Integrations").
+
+### 10.2 Two independent evaluation layers
+
+Beyond unit tests, the system's actual *behavior* on real BRDs is checked two
+separate ways, deliberately kept apart because they catch different failure
+modes:
+
+| | Critic (§3.3) | Eval harness (§10.3) |
+|---|---|---|
+| **Answers** | "Is this artifact any good?" | "Did the system do the right thing?" |
+| **Judge** | An LLM, scoring another LLM's output | Plain Python, checking structural facts |
+| **Runs** | Every pipeline run, automatically | On demand, against a fixed labeled set |
+| **Cost** | Part of every run's normal LLM spend | Extra: 8 full pipeline runs, real tokens |
+| **Wired into CI** | N/A (runs inside the pipeline itself) | No — see §11.4 |
+
+The Critic can be fooled by plausible-sounding prose that's structurally
+wrong; the eval harness can't judge quality at all, only whether the pipeline
+noticed what a BRD was built to test. Neither one substitutes for the other.
+
+### 10.3 The offline evaluation harness (`scripts/run_eval.py`)
+
+Runs the **real** pipeline (real LLM calls, no stubbing) against every entry
+in `data/eval_brds/labels.yaml`, then checks the actual result against that
+entry's `expect` block — deterministic, code-checkable claims, not a model's
+opinion:
+
+| `expect` key | Checks |
+|---|---|
+| `expect_complete` | `current_stage` reached `Stage.COMPLETE` (default: must be true) |
+| `min_requirements` | Ingestion classified at least this many requirements |
+| `min_ambiguous` | At least this many requirements have `ambiguity_flag = true` |
+
+**Only `expect` failures make the script exit non-zero.** Critic scores and
+badges are recorded per BRD and aggregated across the set, but never gate
+pass/fail — the script's own docstring: *"a lower score is data about the
+system, not a bug in it."* That split is the whole point of §10.2: this
+layer verifies behavior, the Critic reports quality alongside it.
+
+The 8 labeled BRDs, each built to stress one specific edge case:
+
+| `brd_id` | Category | What it stresses |
+|---|---|---|
+| `PAYMENTS_RECONCILIATION` | baseline | Clean, precise BRD — the reference every other case is measured against |
+| `CUSTOMER_PORTAL_REVAMP` | baseline | Same idea, different domain and heading convention |
+| `AMBIGUOUS_ANALYTICS` | ambiguous | Hedged language ("should probably", "TBD") — does ingestion flag ambiguity, or invent false certainty |
+| `CONFLICTING_NFRS` | conflicting | A real numeric contradiction (150ms budget vs. a 180-220ms dependency) — surfaced as a risk, or silently assumed away |
+| `OVERSIZED_PLATFORM_MIGRATION` | scale | 22 requirements, 5 services — does the plan decompose this, or flatten it |
+| `MINIMAL_INTERNAL_TOOL` | sparse | Only 2 functional requirements — completes gracefully, without inflating scope |
+| `REGULATED_FINTECH_LEDGER` | regulatory | Immutability, 7-year retention, data residency — real regulatory engagement, not generic boilerplate |
+| `LEGACY_INTEGRATION_HEAVY` | integration | 6 systems, 5 different integration shapes — stresses Architecture's modeling and Tech Stack's real tool-calling |
+
+**Aggregate revision improvement across the whole set**, reusing the exact
+same `revision_improvement()` function the live assembled report uses (one
+definition of "improvement" — see §3.3) — so a prompt or config change's
+effect on the revision loop is a real number across 8 BRDs, not an assertion
+that it "works."
+
+**Output**: `output/eval/<run_id>/` — one JSON per BRD, plus `summary.md`
+and `summary.json`. Compare two `run_id`s' `summary.json` for real before/
+after evidence across a prompt or config change.
+
+```bash
+python scripts/run_eval.py                                    # the whole set
+python scripts/run_eval.py --only AMBIGUOUS_ANALYTICS,CONFLICTING_NFRS
+```
+
+**Not wired into CI** — `.github/workflows/deploy.yml`'s `test` job runs only
+`pyflakes` + `pytest` (free, deterministic, no API key needed). This harness
+makes real LLM calls against 8 full pipeline runs, so it's a deliberate
+manual gate an engineer runs before merging a prompt/model/config change —
+see §11.4 for why that's not a drop-in CI addition.
 
 ## 11. Operationalization & Pre-Release Gates
 
@@ -594,7 +662,7 @@ Run in order; a failure at any step blocks the release. Step 1 is enforced by
 CI (`test` job, `.github/workflows/deploy.yml`); steps 2–3 are still run
 manually only — §11.4 covers that remaining gap.
 
-1. **Static/unit correctness** — `pytest tests/ -q` (166 tests) and `pyflakes`
+1. **Static/unit correctness** — `pytest tests/ -q` (207 tests) and `pyflakes`
    over every touched file must both be clean. CI-enforced: the `test` job
    runs both, with no Azure credentials or API keys required (every LLM/RAG
    call in the suite is stubbed), and `build-and-deploy` declares
