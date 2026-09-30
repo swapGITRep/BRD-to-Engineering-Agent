@@ -7,7 +7,10 @@ pure (non-Streamlit-session) functions.
 """
 from __future__ import annotations
 
-from streamlit_app.lib import _derive_brd_id, _derive_brd_id_from_text, rag_chunk_config
+import json
+
+import streamlit_app.lib as lib
+from streamlit_app.lib import _derive_brd_id, _derive_brd_id_from_text, list_eval_runs, rag_chunk_config
 
 
 # ── _derive_brd_id (filename/label -> id) ─────────────────────────────────────
@@ -70,3 +73,44 @@ class TestRagChunkConfig:
         # itself reads -- this proves the Knowledge Base page's chunk preview
         # can't silently drift from what the retriever actually chunks with.
         assert rag_chunk_config() == (800, 100)
+
+
+# ── list_eval_runs (backed by output/eval/<run_id>/summary.json) ─────────────
+def _write_summary(eval_dir, run_id: str, **fields) -> None:
+    d = eval_dir / run_id
+    d.mkdir(parents=True)
+    (d / "summary.json").write_text(json.dumps({"total": 1, "passed": 1, "results": [], **fields}))
+
+
+class TestListEvalRuns:
+
+    def test_no_eval_dir_returns_empty_list(self, tmp_path, monkeypatch):
+        monkeypatch.setattr(lib, "EVAL_DIR", tmp_path / "does_not_exist")
+        assert list_eval_runs() == []
+
+    def test_lists_runs_newest_first(self, tmp_path, monkeypatch):
+        monkeypatch.setattr(lib, "EVAL_DIR", tmp_path)
+        _write_summary(tmp_path, "20260916T094223Z")
+        _write_summary(tmp_path, "20260920T083346Z")
+        runs = list_eval_runs()
+        assert [r["run_id"] for r in runs] == ["20260920T083346Z", "20260916T094223Z"]
+
+    def test_run_id_defaults_to_folder_name_when_missing(self, tmp_path, monkeypatch):
+        # run_eval.py's own summary.json always sets "run_id", but the loader
+        # shouldn't depend on that -- a hand-edited or older file should still
+        # be identifiable by its folder name.
+        monkeypatch.setattr(lib, "EVAL_DIR", tmp_path)
+        d = tmp_path / "20260101T000000Z"
+        d.mkdir()
+        (d / "summary.json").write_text(json.dumps({"total": 1, "passed": 1, "results": []}))
+        runs = list_eval_runs()
+        assert runs[0]["run_id"] == "20260101T000000Z"
+
+    def test_corrupt_summary_is_skipped_not_fatal(self, tmp_path, monkeypatch):
+        monkeypatch.setattr(lib, "EVAL_DIR", tmp_path)
+        bad = tmp_path / "20260101T000000Z"
+        bad.mkdir()
+        (bad / "summary.json").write_text("{not valid json")
+        _write_summary(tmp_path, "20260920T083346Z")
+        runs = list_eval_runs()
+        assert [r["run_id"] for r in runs] == ["20260920T083346Z"]

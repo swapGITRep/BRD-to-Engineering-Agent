@@ -33,6 +33,7 @@ nav = st.navigation(
             st.Page("views/dashboard.py", title="Dashboard", icon="🏠", default=True),
             st.Page("views/upload.py", title="BRD Upload", icon="📤"),
             st.Page("views/history.py", title="Run History", icon="🕓"),
+            st.Page("views/eval_runs.py", title="Eval Runs", icon="🧪"),
         ],
         "Results": [
             st.Page("views/requirements.py", title="Parsed Requirements", icon="📑"),

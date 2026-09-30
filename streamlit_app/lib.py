@@ -26,6 +26,7 @@ SAMPLE_DIR = ROOT / "data" / "sample_brds"
 LLM_CONFIG_PATH = ROOT / "config" / "llm_config.yaml"
 REPORT_DIR = ROOT / "output" / "reports"
 PARSED_DIR = ROOT / "output" / "parsed"
+EVAL_DIR = ROOT / "output" / "eval"
 
 APP_NAME = "Charter"
 APP_TAGLINE = "Turns a Business Requirements Document into a scored, build-ready delivery plan."
@@ -761,3 +762,25 @@ def load_historical_run(brd_id: str) -> Optional[Dict[str, Any]]:
         "current_step": "loaded_from_history",
         **{k: deliverables.get(k) for k, _ in DELIVERABLES},
     }
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Eval runs (backed by output/eval/<run_id>/summary.json)
+# ─────────────────────────────────────────────────────────────────────────────
+def list_eval_runs() -> List[Dict[str, Any]]:
+    """All scripts/run_eval.py runs with a summary.json, newest first.
+
+    A run_id is a sortable UTC timestamp (YYYYmmddTHHMMSSZ), so sorting by
+    folder name descending is newest-first -- unless --out gave it a custom
+    name, in which case this is best-effort rather than a hard guarantee."""
+    if not EVAL_DIR.exists():
+        return []
+    runs = []
+    for p in sorted(EVAL_DIR.glob("*/summary.json"), reverse=True):
+        try:
+            data = json.loads(p.read_text())
+            data.setdefault("run_id", p.parent.name)
+            runs.append(data)
+        except Exception:  # noqa: BLE001 - a corrupt summary shouldn't break the list
+            continue
+    return runs
